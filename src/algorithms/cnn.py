@@ -21,15 +21,24 @@ def condensed_nearest_neighbor(X, y):
     X_prototypes = []
     y_prototypes = []
 
+    remaining_indices = list(range(len(X)))
+
     # Start with the first instance of each class
     for label in np.unique(y):
         index = random.choice(np.where(y == label)[0])
         X_prototypes.append(X[index])
         y_prototypes.append(y[index])
+        remaining_indices.remove(index)
 
     # Convert lists to numpy arrays
     X_prototypes = np.array(X_prototypes)
     y_prototypes = np.array(y_prototypes)
+
+    # from imblearn.under_sampling import CondensedNearestNeighbour
+
+    # cnn = CondensedNearestNeighbour(random_state=42)
+    # X_prototypes, y_prototypes = cnn.fit_resample(X, y)
+    # return X_prototypes, y_prototypes
 
     # Create a KNN classifier with k=1
     knn = KNeighborsClassifier(n_neighbors=1)
@@ -38,14 +47,16 @@ def condensed_nearest_neighbor(X, y):
     changes = True
     while changes:
         changes = False
-        for i in range(len(X)):
-            knn.fit(X_prototypes, y_prototypes)
-            if knn.predict([X[i]])[0] != y[i]:
+        knn.fit(X_prototypes, y_prototypes)
+        for i in remaining_indices:
+            pred = knn.predict([X[i]])[0]
+            if pred != y[i]:
                 # Add the misclassified instance to the set of prototypes
                 X_prototypes = np.vstack([X_prototypes, X[i]])
                 y_prototypes = np.append(y_prototypes, y[i])
                 changes = True
                 break  # Restart the while loop to re-evaluate with the new prototype set
+
     return X_prototypes, y_prototypes
 
 
