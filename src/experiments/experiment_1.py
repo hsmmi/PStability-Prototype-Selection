@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
 # Load and preprocess the data
-data_path = "data/processed/iris_processed.data"
+data_path = "data/raw/data.csv"
 # print pwd
 
 df = load_data(data_path)

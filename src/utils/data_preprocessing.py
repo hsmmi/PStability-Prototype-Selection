@@ -4,7 +4,16 @@ import os
 from sklearn.discriminant_analysis import StandardScaler
 
 
-def load_data(file_path):
+def load_data(file_path: str) -> pd.DataFrame:
+    """
+    Load the data from the specified file path.
+
+    Parameters:
+    file_path (str): Path to the data file.
+
+    Returns:
+    pd.DataFrame: Dataframe containing the data.
+    """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
 
