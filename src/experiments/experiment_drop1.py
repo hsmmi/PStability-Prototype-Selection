@@ -1,19 +1,18 @@
 import random
 import time
-from src.algorithms.cnn import condensed_nearest_neighbor
+
+from sklearn.datasets import make_moons, make_circles
+from src.algorithms.drops import drop1
 from src.utils.data_preprocessing import load_data
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
+from src.utils.visualization import plot_algorithm_results
 
-# Load and preprocess the data
-data_path = "data/raw/data.csv"
-# print pwd
+# X, y = make_moons(n_samples=1000, noise=0.2, random_state=42)
+X, y = make_circles(n_samples=1000, noise=0.1, factor=0.5, random_state=42)
 
-df = load_data(data_path)
-
-X = df.iloc[:, :-1].values
-y = df.iloc[:, -1].values
+# data = load_data("data/raw
 
 # Train-test split
 X_train, X_test, y_train, y_test = train_test_split(
@@ -34,7 +33,7 @@ accuracy = accuracy_score(y_test, y_pred)
 start_time = time.time()
 
 # Apply CNN algorithm
-X_reduced, y_reduced = condensed_nearest_neighbor(X_train, y_train)
+X_reduced, y_reduced = drop1(X_train, y_train, k=3)
 
 # End timer
 end_time = time.time()
@@ -49,7 +48,7 @@ accuracy_reduced = accuracy_score(y_test, y_pred_reduced)
 
 
 # Log the results
-log_path = "results/logs/experiment_1.log"
+log_path = "results/logs/experiment_drop1.log"
 with open(log_path, "w") as log_file:
     log_file.write(f"Original accuracy: {accuracy}\n")
     log_file.write(f"Reduced accuracy: {accuracy_reduced}\n")
@@ -61,9 +60,13 @@ with open(log_path, "w") as log_file:
     log_file.write(f"Execution time: {end_time - start_time:.2f} seconds\n")
     log_file.write("\n")
 
-print(f"Original accuracy: {accuracy}")
-print(f"Reduced accuracy: {accuracy_reduced}")
+
+print(f"Original accuracy: {accuracy*100:.2f}%")
+print(f"Reduced accuracy: {accuracy_reduced*100:.2f}%")
 print(f"Original size: {len(X_train)}")
 print(f"Reduced size: {len(X_reduced)}")
 print(f"Reduction percentage: {100 * (1 - len(X_reduced) / len(X_train)):.2f}%")
 print(f"Execution time: {end_time - start_time:.2f} seconds")
+
+# Plot the results
+plot_algorithm_results(X, y, X_reduced, y_reduced, "Drop1")
