@@ -1,73 +1,41 @@
 import random
-import time
 from src.algorithms.cnn import condensed_nearest_neighbor
 from src.utils.data_preprocessing import load_data
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
-from src.utils.visualization import plot_algorithm_results
+from src.utils.evaluation_metrics import compare_prototype_selection
+
+# set random seed to 42
+random.seed(42)
 
 # Load and preprocess the data
 data_path = "data/raw/data.csv"
-# print pwd
 
 df = load_data(data_path)
 
 X = df.iloc[:, :-1].values
 y = df.iloc[:, -1].values
 
-# Train-test split
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
-# set random seed to 42
-random.seed(42)
-
-# Train the KNN classifier on the reduced dataset
-knn = KNeighborsClassifier(n_neighbors=3)
-knn.fit(X_train, y_train)
-
-# Evaluate the classifier
-y_pred = knn.predict(X_test)
-accuracy = accuracy_score(y_test, y_pred)
-
-# Start timer
-start_time = time.time()
-
-# Apply CNN algorithm
-X_reduced, y_reduced = condensed_nearest_neighbor(X_train, y_train)
-
-# End timer
-end_time = time.time()
-
-# Train the KNN classifier on the reduced dataset
-knn_reduced = KNeighborsClassifier(n_neighbors=3)
-knn_reduced.fit(X_reduced, y_reduced)
-
-# Evaluate the classifier
-y_pred_reduced = knn_reduced.predict(X_test)
-accuracy_reduced = accuracy_score(y_test, y_pred_reduced)
-
+result = compare_prototype_selection(X, y, [condensed_nearest_neighbor])
 
 # Log the results
-log_path = "results/logs/experiment_1.log"
-with open(log_path, "w") as log_file:
-    log_file.write(f"Original accuracy: {accuracy}\n")
-    log_file.write(f"Reduced accuracy: {accuracy_reduced}\n")
-    log_file.write(f"Original size: {len(X_train)}\n")
-    log_file.write(f"Reduced size: {len(X_reduced)}\n")
-    log_file.write(
-        f"Reduction percentage: {100 * (1 - len(X_reduced) / len(X_train)):.2f}%\n"
-    )
-    log_file.write(f"Execution time: {end_time - start_time:.2f} seconds\n")
+log_path = "results/logs/experiment_cnn.log"
+
+# print(f"Original accuracy: {accuracy*100:.2f}%")
+# print(f"Reduced accuracy: {accuracy_reduced*100:.2f}%")
+# print(f"Original size: {len(X_train)}")
+# print(f"Reduced size: {len(X_reduced)}")
+# print(f"Reduction percentage: {100 * (1 - len(X_reduced) / len(X_train)):.2f}%")
+# print(f"Execution time: {end_time - start_time:.2f} seconds")
+
+with open(log_path, "a") as log_file:
+    for key, value in result.items():
+        log_file.write(f". {key}: {value}")
+        log_file.write("\n")
     log_file.write("\n")
 
-print(f"Original accuracy: {accuracy*100:.2f}%")
-print(f"Reduced accuracy: {accuracy_reduced*100:.2f}%")
-print(f"Original size: {len(X_train)}")
-print(f"Reduced size: {len(X_reduced)}")
-print(f"Reduction percentage: {100 * (1 - len(X_reduced) / len(X_train)):.2f}%")
-print(f"Execution time: {end_time - start_time:.2f} seconds")
-
-# Plot the results
-plot_algorithm_results(X_train, y_train, X_reduced, y_reduced, title="CNN Results")
+for key in result:
+    print(f"{key} Algorithm Results")
+    print(f"Accuracy: {result[key][0]*100:.2f}%")
+    print(f"Size: {result[key][1]}")
+    print(f"Reduction Percentage: {result[key][2]:.2f}%")
+    print(f"Execution Time: {result[key][3]:.2f} seconds")
+    print("\n")
