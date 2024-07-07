@@ -90,12 +90,14 @@ def compare_prototype_selection(
     Returns:
     dict: Dictionary containing the results for each algorithm.
     """
-    results = {algorithm.__name__: [] for algorithm in algorithms}
+    results = {
+        f"{idx}.{algorithm.__name__}": [] for idx, algorithm in enumerate(algorithms)
+    }
     results["Original"] = []
 
     kf = KFold(n_splits=n_folds, shuffle=True, random_state=42)
 
-    for train_index, test_index in kf.split(X):
+    for n_fold, (train_index, test_index) in enumerate(kf.split(X)):
         X_train, X_test = X[train_index], X[test_index]
         y_train, y_test = y[train_index], y[test_index]
 
@@ -104,8 +106,8 @@ def compare_prototype_selection(
         knn.fit(X_train, y_train)
 
         # Evaluate the classifier
-        y_pred = knn.predict(X_test)
-        accuracy = accuracy_score(y_test, y_pred)
+        y_pred = knn.predict(X_train)
+        accuracy = accuracy_score(y_train, y_pred)
 
         results["Original"].append(
             [
@@ -116,7 +118,7 @@ def compare_prototype_selection(
             ]
         )
 
-        for algorithm in algorithms:
+        for idx, algorithm in enumerate(algorithms):
             # Start timer
             start_time = time.time()
 
@@ -126,6 +128,10 @@ def compare_prototype_selection(
             # End timer
             end_time = time.time()
 
+            print(
+                f"{idx}.{algorithm.__name__} - Fold: {n_fold} - Time: {end_time - start_time}"
+            )
+
             # Train the KNN classifier on the reduced dataset
             knn_reduced = KNeighborsClassifier(n_neighbors=k)
             knn_reduced.fit(X_reduced, y_reduced)
@@ -134,7 +140,7 @@ def compare_prototype_selection(
             y_pred_reduced = knn_reduced.predict(X_test)
             accuracy_reduced = accuracy_score(y_test, y_pred_reduced)
 
-            results[algorithm.__name__].append(
+            results[f"{idx}.{algorithm.__name__}"].append(
                 [
                     accuracy_reduced,
                     len(X_reduced),

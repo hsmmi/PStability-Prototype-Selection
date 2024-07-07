@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.neighbors import KNeighborsClassifier
 
 
-def edited_nearest_neighbor(X, y, k=3):
+def enn(X, y, k=3) -> tuple[np.ndarray, np.ndarray]:
     """
     Edited Nearest Neighbor algorithm to clean the training set.
 
@@ -45,6 +45,6 @@ if __name__ == "__main__":
     data = load_iris()
     X, y = data.data, data.target
     X, y = X[y != 2], y[y != 2]  # Keep only two classes for the example
-    X_cleaned, y_cleaned = edited_nearest_neighbor(X, y)
+    X_cleaned, y_cleaned = enn(X, y)
     print(f"Original size: {len(X)}")
     print(f"Cleaned size: {len(X_cleaned)}")
