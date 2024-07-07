@@ -81,26 +81,7 @@ class DROP(BaseEstimator, ClassifierMixin):
         # Run ENN to get the initially kept samples
         self.X_, self.y_ = enn(self.X_, self.y_, self.k)
 
-        dists_enemy = self._dist_enemy(self.X_, self.y_)
-        removal_order = np.argsort(dists_enemy)[::-1]
-
-        preds = self._get_knn_predictions(
-            self.X_, self.y_, exclude_index=None, test_removed=True
-        )
-        current_accuracy = np.sum(preds == self.y_)
-
-        to_remove = []
-        for j in removal_order:
-            preds_in = self._get_knn_predictions(
-                self.X_, self.y_, exclude_index=[j] + to_remove, test_removed=True
-            )
-            new_accuracy = np.sum(preds_in == self.y_)
-            if new_accuracy >= current_accuracy:
-                current_accuracy = new_accuracy
-                to_remove.append(j)
-
-        self.clean_data_ = np.delete(self.X_, to_remove, axis=0)
-        self.removed_indices_ = to_remove
+        self._drop2()
 
     def _get_knn_predictions(self, X, y, exclude_index, test_removed):
 
