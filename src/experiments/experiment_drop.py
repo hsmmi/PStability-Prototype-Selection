@@ -1,31 +1,84 @@
 import random
-
-from sklearn.datasets import make_moons
 from src.utils.evaluation_metrics import compare_prototype_selection
 from src.algorithms.drop import DROP as DROP
+import tabulate
 
 # set random seed to 42
 random.seed(42)
 
-X, y = make_moons(n_samples=500, noise=0.5, random_state=42)
+# Load iris dataset
+from sklearn.datasets import load_iris
+
+data = load_iris()
+X, y = data.data, data.target
+
+# Scale the data
+from sklearn.preprocessing import StandardScaler
+
+scaler = StandardScaler()
+# X = scaler.fit_transform(X)
+
+# Compare the DROP algorithm with different methods
+
+algorithms = {
+    "DROP1": DROP(3, "DROP1").fit,
+    "DROP2": DROP(3, "DROP2").fit,
+    "DROP3": DROP(3, "DROP3").fit,
+}
 
 result = compare_prototype_selection(
-    X, y, [DROP(3, "DROP1").fit, DROP(3, "DROP2").fit, DROP(3, "DROP3").fit]
+    X,
+    y,
+    algorithms,
+    3,
+    10,
 )
 
 # Log the results
 log_path = "results/logs/experiment_drop.log"
 
-with open(log_path, "a") as log_file:
-    for key, value in result.items():
-        log_file.write(f". {key}: {value}")
-        log_file.write("\n")
-    log_file.write("\n")
+formatted_result = {
+    key: {
+        "Accuracy": result[key][0],
+        "Size": result[key][1],
+        "Reduction": result[key][2],
+        "Time": result[key][3],
+    }
+    for key in result
+}
 
+with open(log_path, "a") as f:
+    f.write(str(formatted_result) + "\n")
+
+# Print in tabulated format
+table = []
 for key in result:
-    print(f"{key} Algorithm Results")
-    print(f"Accuracy: {result[key][0]*100:.2f}%")
-    print(f"Size: {result[key][1]}")
-    print(f"Reduction Percentage: {result[key][2]:.2f}%")
-    print(f"Execution Time: {result[key][3]:.2f} seconds")
-    print("\n")
+    table.append(
+        [
+            key,
+            f"{result[key][0]*100:.2f}%",
+            result[key][1],
+            f"{result[key][2]*100:.2f}%",
+            f"{result[key][3]:.2f}s",
+        ]
+    )
+
+headers = [
+    "Algorithm",
+    "Accuracy",
+    "Size",
+    "Reduction",
+    "Time",
+]
+
+# Add padding to the headers :^10
+headers = [f"{header:^10}" for header in headers]
+
+print(
+    tabulate.tabulate(
+        table,
+        headers,
+        tablefmt="fancy_grid",
+        colalign=["center"] * 5,
+    )
+)

@@ -11,7 +11,6 @@ class DROP(BaseEstimator, ClassifierMixin):
         self.method = method
 
     def fit(self, X, y):
-        print("drop2")
         self.X_ = X
         self.y_ = y
         self.classes_ = np.unique(y)

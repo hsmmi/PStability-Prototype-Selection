@@ -60,7 +60,7 @@ def comparison(X: np.ndarray, y: np.ndarray, algorithm):
         accuracy_reduced,
         len(X_train),
         len(X_reduced),
-        100 * (1 - len(X_reduced) / len(X_train)),
+        (1 - len(X_reduced) / len(X_train)),
         end_time - start_time,
     )
 
@@ -72,10 +72,11 @@ from sklearn.neighbors import KNeighborsClassifier
 import numpy as np
 import random
 import time
+from tqdm import tqdm
 
 
 def compare_prototype_selection(
-    X: np.ndarray, y: np.ndarray, algorithms: list, k: int = 3, n_folds: int = 5
+    X: np.ndarray, y: np.ndarray, algorithms: dict, k: int = 3, n_folds: int = 5
 ):
     """
     Compare different prototype selection algorithms using n-fold cross validation.
@@ -83,21 +84,19 @@ def compare_prototype_selection(
     Parameters:
     X (numpy.ndarray): Feature matrix of the training data.
     y (numpy.ndarray): Labels of the training data.
-    algorithms (list): List of algorithms to use for reducing the dataset.
+    algorithms (dict): dict of algorithms to use for reducing the dataset.
     k (int): Number of neighbors to use for classification.
     n_folds (int): Number of folds for cross validation.
 
     Returns:
     dict: Dictionary containing the results for each algorithm.
     """
-    results = {
-        f"{idx}.{algorithm.__name__}": [] for idx, algorithm in enumerate(algorithms)
-    }
+    results = {key: [] for key in algorithms.keys()}
     results["Original"] = []
 
     kf = KFold(n_splits=n_folds, shuffle=True, random_state=42)
 
-    for n_fold, (train_index, test_index) in enumerate(kf.split(X)):
+    for train_index, test_index in tqdm(kf.split(X), total=n_folds):
         X_train, X_test = X[train_index], X[test_index]
         y_train, y_test = y[train_index], y[test_index]
 
@@ -118,7 +117,9 @@ def compare_prototype_selection(
             ]
         )
 
-        for idx, algorithm in enumerate(algorithms):
+        for key, algorithm in algorithms.items():
+            if key == "Original":
+                continue
             # Start timer
             start_time = time.time()
 
@@ -128,10 +129,6 @@ def compare_prototype_selection(
             # End timer
             end_time = time.time()
 
-            print(
-                f"{idx}.{algorithm.__name__} - Fold: {n_fold} - Time: {end_time - start_time}"
-            )
-
             # Train the KNN classifier on the reduced dataset
             knn_reduced = KNeighborsClassifier(n_neighbors=k)
             knn_reduced.fit(X_reduced, y_reduced)
@@ -140,11 +137,11 @@ def compare_prototype_selection(
             y_pred_reduced = knn_reduced.predict(X_test)
             accuracy_reduced = accuracy_score(y_test, y_pred_reduced)
 
-            results[f"{idx}.{algorithm.__name__}"].append(
+            results[key].append(
                 [
                     accuracy_reduced,
                     len(X_reduced),
-                    100 * (1 - len(X_reduced) / len(X_train)),
+                    (1 - len(X_reduced) / len(X_train)),
                     end_time - start_time,
                 ]
             )
