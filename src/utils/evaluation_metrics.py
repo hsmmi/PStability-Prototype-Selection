@@ -4,6 +4,8 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score
+from sklearn.model_selection import KFold
+from tqdm import tqdm
 
 
 def comparison(X: np.ndarray, y: np.ndarray, algorithm):
@@ -66,17 +68,14 @@ def comparison(X: np.ndarray, y: np.ndarray, algorithm):
 
 
 # Compare different prororype selection with n-fold cross validation
-from sklearn.model_selection import KFold
-from sklearn.metrics import accuracy_score
-from sklearn.neighbors import KNeighborsClassifier
-import numpy as np
-import random
-import time
-from tqdm import tqdm
 
 
 def compare_prototype_selection(
-    X: np.ndarray, y: np.ndarray, algorithms: dict, k: int = 3, n_folds: int = 5
+    X: np.ndarray,
+    y: np.ndarray,
+    algorithms: dict[str, dict],
+    k: int = 3,
+    n_folds: int = 5,
 ):
     """
     Compare different prototype selection algorithms using n-fold cross validation.
@@ -84,7 +83,7 @@ def compare_prototype_selection(
     Parameters:
     X (numpy.ndarray): Feature matrix of the training data.
     y (numpy.ndarray): Labels of the training data.
-    algorithms (dict): dict of algorithms to use for reducing the dataset.
+    algorithms (dict): dict of algorithms containing the algorithm function and optional init_params.
     k (int): Number of neighbors to use for classification.
     n_folds (int): Number of folds for cross validation.
 
@@ -96,7 +95,9 @@ def compare_prototype_selection(
 
     kf = KFold(n_splits=n_folds, shuffle=True, random_state=42)
 
-    for train_index, test_index in tqdm(kf.split(X), total=n_folds):
+    for train_index, test_index in tqdm(
+        kf.split(X), total=n_folds, desc="K-Fold progress", leave=False
+    ):
         X_train, X_test = X[train_index], X[test_index]
         y_train, y_test = y[train_index], y[test_index]
 
@@ -113,18 +114,30 @@ def compare_prototype_selection(
                 accuracy,
                 len(X_train),
                 0,
-                -1,
+                0,
             ]
         )
 
-        for key, algorithm in algorithms.items():
+        for key, value in tqdm(
+            algorithms.items(), desc="Algorithm progress", leave=False
+        ):
             if key == "Original":
                 continue
+
+            algorithm, init_params = value["algorithm"], value.get("init_params", None)
+
             # Start timer
             start_time = time.time()
 
-            # Apply the algorithm
-            X_reduced, y_reduced = algorithm(X_train, y_train)
+            args = {
+                "X": X_train,
+                "y": y_train,
+            }
+            if init_params:
+                args.update(init_params)
+
+            # Apply Algorithm
+            X_reduced, y_reduced = algorithm(**args)
 
             # End timer
             end_time = time.time()
@@ -132,6 +145,13 @@ def compare_prototype_selection(
             # Train the KNN classifier on the reduced dataset
             knn_reduced = KNeighborsClassifier(n_neighbors=k)
             knn_reduced.fit(X_reduced, y_reduced)
+
+            # Check if the reduced dataset has at least k samples
+            if len(X_reduced) < k:
+                # Remove the algorithm from the results
+                results.pop(key)
+                algorithms.pop(key)
+                continue
 
             # Evaluate the classifier
             y_pred_reduced = knn_reduced.predict(X_test)

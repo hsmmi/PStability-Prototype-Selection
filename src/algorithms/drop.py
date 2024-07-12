@@ -104,7 +104,7 @@ class DROP(BaseEstimator, ClassifierMixin):
         dists = np.zeros(len(X))
         for i in range(len(X)):
             enemy_mask = y != y[i]
-            enemy_dists = distance.cdist([X[i]], X[enemy_mask], "euclidean")
+            enemy_dists = distance.cdist([X[i]], X[enemy_mask], "euclideanß")
             dists[i] = np.min(enemy_dists)
         return dists
 

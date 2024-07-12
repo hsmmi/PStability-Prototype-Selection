@@ -2,40 +2,42 @@
 
 import numpy as np
 from sklearn.neighbors import KNeighborsClassifier
+from src.algorithms.base import BaseAlgorithm
 
 
-def enn(X, y, k=3) -> tuple[np.ndarray, np.ndarray]:
+class ENN(BaseAlgorithm):
     """
-    Edited Nearest Neighbor algorithm to clean the training set.
+    Edited Nearest Neighbors (ENN) algorithm for noise reduction.
 
     Parameters:
-    X (numpy.ndarray): Feature matrix of the training data.
-    y (numpy.ndarray): Labels of the training data.
-    k (int): Number of neighbors to use for classification.
-
-    Returns:
-    numpy.ndarray: Cleaned feature matrix.
-    numpy.ndarray: Cleaned labels.
+    k (int): Number of neighbors to use for the k-nearest neighbors algorithm. Default is 3.
     """
-    # Create a KNN classifier with k neighbors
-    knn = KNeighborsClassifier(n_neighbors=k)
 
-    # Iterate until no more instances can be removed
-    while True:
+    def __init__(self, k: int = 3):
+        self.k = k
+        self.sample_indices_ = []
+        self.X_ = None
+        self.y_ = None
+
+    def select(self, X: np.ndarray, y: np.ndarray) -> np.ndarray:
+        """
+        Perform the Edited Nearest Neighbors algorithm.
+
+        Parameters:
+        X (np.ndarray): Training data.
+        y (np.ndarray): Target values.
+
+        Returns:
+        np.ndarray: Indices of the samples that were not misclassified.
+        """
+        knn = KNeighborsClassifier(n_neighbors=self.k)
         knn.fit(X, y)
         y_pred = knn.predict(X)
-
-        # Identify instances where the prediction does not match the actual label
         misclassified_indices = np.where(y != y_pred)[0]
-
-        if len(misclassified_indices) == 0:
-            break
-
-        # Remove misclassified instances
-        X = np.delete(X, misclassified_indices, axis=0)
-        y = np.delete(y, misclassified_indices)
-
-    return X, y
+        sample_indices = np.setdiff1d(np.arange(len(X)), misclassified_indices)
+        self.X_ = X[sample_indices]
+        self.y_ = y[sample_indices]
+        return sample_indices
 
 
 # Example usage
@@ -45,6 +47,9 @@ if __name__ == "__main__":
     data = load_iris()
     X, y = data.data, data.target
     X, y = X[y != 2], y[y != 2]  # Keep only two classes for the example
-    X_cleaned, y_cleaned = enn(X, y)
+
+    enn = ENN(k=3)
+    X_cleaned, y_cleaned = enn.fit(X, y).transform(X, y)
+
     print(f"Original size: {len(X)}")
     print(f"Cleaned size: {len(X_cleaned)}")

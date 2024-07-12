@@ -1,41 +1,31 @@
 import random
 from src.utils.evaluation_metrics import compare_prototype_selection
-from src.algorithms.drop import DROP as DROP
+from src.algorithms.drop3 import DROP3 as DROP3
 import tabulate
+from sklearn.datasets import load_wine
 
 # set random seed to 42
 random.seed(42)
 
-# Load iris dataset
-from sklearn.datasets import load_iris
-
-data = load_iris()
+# Load wine dataset
+data = load_wine()
 X, y = data.data, data.target
 
 # Scale the data
 from sklearn.preprocessing import StandardScaler
 
 scaler = StandardScaler()
-# X = scaler.fit_transform(X)
+X = scaler.fit_transform(X)
 
 # Compare the DROP algorithm with different methods
-
 algorithms = {
-    "DROP1": DROP(3, "DROP1").fit,
-    "DROP2": DROP(3, "DROP2").fit,
-    "DROP3": DROP(3, "DROP3").fit,
+    "DROP3": {"algorithm": DROP3(3).fit_transform},
 }
 
-result = compare_prototype_selection(
-    X,
-    y,
-    algorithms,
-    3,
-    10,
-)
+result = compare_prototype_selection(X, y, algorithms, 3, 10)
 
 # Log the results
-log_path = "results/logs/experiment_drop.log"
+log_path = "results/logs/experiment_ris.log"
 
 formatted_result = {
     key: {
