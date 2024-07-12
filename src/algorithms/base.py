@@ -30,13 +30,13 @@ class BaseAlgorithm(ABC):
         """
         self.X = X
         self.y = y
-        self.sample_indices_ = self.select(X, y)
+        self.sample_indices_ = self.select()
         self.X_ = X[self.sample_indices_]
         self.y_ = y[self.sample_indices_]
         self.reduction_ratio = 1 - len(self.X_) / len(X)
         return self
 
-    def select(self, X, y):
+    def select(self):
         """
         Select instances from the training data.
 

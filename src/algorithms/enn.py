@@ -19,24 +19,18 @@ class ENN(BaseAlgorithm):
         self.X_ = None
         self.y_ = None
 
-    def select(self, X: np.ndarray, y: np.ndarray) -> np.ndarray:
+    def select(self) -> np.ndarray:
         """
         Perform the Edited Nearest Neighbors algorithm.
-
-        Parameters:
-        X (np.ndarray): Training data.
-        y (np.ndarray): Target values.
 
         Returns:
         np.ndarray: Indices of the samples that were not misclassified.
         """
         knn = KNeighborsClassifier(n_neighbors=self.k)
-        knn.fit(X, y)
-        y_pred = knn.predict(X)
-        misclassified_indices = np.where(y != y_pred)[0]
-        sample_indices = np.setdiff1d(np.arange(len(X)), misclassified_indices)
-        self.X_ = X[sample_indices]
-        self.y_ = y[sample_indices]
+        knn.fit(self.X, self.y)
+        y_pred = knn.predict(self.X)
+        misclassified_indices = np.where(self.y != y_pred)[0]
+        sample_indices = np.setdiff1d(np.arange(len(self.X)), misclassified_indices)
         return sample_indices
 
 

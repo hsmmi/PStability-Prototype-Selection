@@ -68,12 +68,12 @@ class DROP3(BaseAlgorithm):
                 ans += 1
         return ans
 
-    def select(self, X, y):
+    def select(self):
         enn = ENN(k=self.n_neighbors)
-        S = enn.fit(X, y).sample_indices_
+        S = enn.fit(self.X, self.y).sample_indices_
 
-        self.X_ = X[S]
-        self.y_ = y[S]
+        self.X_ = self.X[S]
+        self.y_ = self.y[S]
 
         self.mask = np.ones(len(self.X_), dtype=bool)
 
@@ -102,7 +102,5 @@ class DROP3(BaseAlgorithm):
                     self.associates[neighbor].add(a)
 
         self.sample_indices_ = S[self.mask]
-        self.X_ = X[self.sample_indices_]
-        self.y_ = y[self.sample_indices_]
 
         return self.sample_indices_
