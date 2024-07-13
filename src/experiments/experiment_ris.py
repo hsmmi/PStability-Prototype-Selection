@@ -22,12 +22,11 @@ X = scaler.fit_transform(X)
 # Define the algorithms
 algorithms = {
     "DROP3": {"algorithm": DROP3(3).fit_transform},
+    "RIS1": {"algorithm": RIS("RIS1", 0.1).fit_transform},
+    "RIS2": {"algorithm": RIS("RIS2", 0.1).fit_transform},
+    "RIS3": {"algorithm": RIS("RIS3", 0.1).fit_transform},
 }
-thresholds = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-for threshold in thresholds:
-    algorithms[f"RIS {threshold}"] = {
-        "algorithm": RIS(threshold=threshold).fit_transform
-    }
+
 result = compare_prototype_selection(X, y, algorithms, 3, 10)
 
 # Log the results

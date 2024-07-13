@@ -1,7 +1,8 @@
-# Create base class for instance selection algorithms
-from abc import ABC
+from abc import ABC, abstractmethod
 
 import numpy as np
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score
 
 
 class BaseAlgorithm(ABC):
@@ -15,9 +16,13 @@ class BaseAlgorithm(ABC):
         self.sample_indices_ = None
         self.X_ = None
         self.y_ = None
-        self.reduction_ratio = None
+        self.reduction_ratio_ = None
+        self.n_samples = None
+        self.n_features = None
+        self.classes_ = None
+        self.n_classes_ = None
 
-    def fit(self, X, y):
+    def fit(self, X: np.ndarray, y: np.ndarray) -> "BaseAlgorithm":
         """
         Fit the model using the training data.
 
@@ -30,13 +35,17 @@ class BaseAlgorithm(ABC):
         """
         self.X = X
         self.y = y
+        self.n_samples, self.n_features = X.shape
+        self.classes_ = np.unique(y)
+        self.n_classes_ = len(self.classes_)
         self.sample_indices_ = self.select()
         self.X_ = X[self.sample_indices_]
         self.y_ = y[self.sample_indices_]
         self.reduction_ratio = 1 - len(self.X_) / len(X)
         return self
 
-    def select(self):
+    @abstractmethod
+    def select(self) -> np.ndarray:
         """
         Select instances from the training data.
 
@@ -47,11 +56,9 @@ class BaseAlgorithm(ABC):
         Returns:
         np.ndarray: Indices of the selected instances.
         """
-        raise NotImplementedError(
-            "The select method must be implemented in a subclass."
-        )
+        pass
 
-    def transform(self, X, y) -> tuple[np.ndarray, np.ndarray]:
+    def transform(self, X: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """
         Transform the data by selecting instances.
 
@@ -66,7 +73,9 @@ class BaseAlgorithm(ABC):
             raise ValueError("The model has not been fitted yet.")
         return X[self.sample_indices_], y[self.sample_indices_]
 
-    def fit_transform(self, X, y) -> tuple[np.ndarray, np.ndarray]:
+    def fit_transform(
+        self, X: np.ndarray, y: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Fit the model and transform the data in a single step.
 
@@ -79,3 +88,30 @@ class BaseAlgorithm(ABC):
         """
         self.fit(X, y)
         return self.transform(X, y)
+
+    def score(self) -> tuple[float, float]:
+        """
+        Return the accuracy and reduction ratio of the model.
+
+        Returns:
+        Tuple[float, float]: Accuracy and reduction ratio.
+        """
+
+        # Ckeck if the model has been fitted
+        if self.sample_indices_ is None:
+            raise ValueError("The model has not been fitted yet.")
+
+        # If number of selected instances less than n_neighbors return 0
+        if len(self.sample_indices_) < 5:
+            return 0, 100
+
+        # Fit the KNN classifier on the reduced dataset
+        knn = KNeighborsClassifier()
+        knn.fit(self.X[self.sample_indices_], self.y[self.sample_indices_])
+
+        # Evaluate the classifier
+        y_pred = knn.predict(self.X)
+        accuracy = accuracy_score(self.y, y_pred)
+        reduction_ratio = 1 - len(self.sample_indices_) / len(self.X)
+
+        return accuracy, reduction_ratio
