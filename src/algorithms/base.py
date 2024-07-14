@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score
+from sklearn.utils import check_X_y
 
 
 class BaseAlgorithm(ABC):
@@ -33,11 +34,13 @@ class BaseAlgorithm(ABC):
         Returns:
         self: Fitted instance of the algorithm.
         """
+        X, y = check_X_y(X, y, accept_sparse="csr")
         self.X = X
         self.y = y
         self.n_samples, self.n_features = X.shape
         self.classes_ = np.unique(y)
         self.n_classes_ = len(self.classes_)
+        self.sample_indices_ = []
         self.sample_indices_ = self.select()
         self.X_ = X[self.sample_indices_]
         self.y_ = y[self.sample_indices_]

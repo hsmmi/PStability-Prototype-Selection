@@ -5,8 +5,8 @@ from src.algorithms.base import BaseAlgorithm
 
 
 class RIS(BaseAlgorithm):
-    def __init__(self, method="RIS1", threshold=0.1):
-        self.threshold = threshold
+    def __init__(self, method="RIS1"):
+        self.threshold = None
         self.method = method
         self.pairwise_distances = None
 
