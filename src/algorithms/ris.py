@@ -41,7 +41,10 @@ class RIS(BaseAlgorithm):
             # exp(0) = 1
             sm_num -= 1
             sm_denom -= 1
-            scores[i] = sm_num / sm_denom
+            if sm_denom == 0:
+                scores[i] = 0
+            else:
+                scores[i] = sm_num / sm_denom
 
         return scores, radius
 
@@ -153,5 +156,4 @@ class RIS(BaseAlgorithm):
 
     def select(self):
         self.threshold = self._best_threshold()
-        self.threshold = 0.2
         return self._run_method()
