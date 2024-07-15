@@ -13,23 +13,26 @@ class ICF(BaseAlgorithm):
         super().__init__()
         self.n_neighbors = n_neighbors
         self.mask: np.ndarray = None
-        self.min_enemy_distance: np.ndarray = None
+        self.distance_nearest_enemy: np.ndarray = None
+        self.pairwise_distances: np.ndarray = None
 
-    def _set_min_enemy_distance(self):
+    def _set_distance_nearest_enemy(self):
         """
         Set the minimum distance to the nearest enemy for each instance.
         """
 
-        self.min_enemy_distance = np.full(self.X_.shape[0], np.inf)
+        self.distance_nearest_enemy = np.full(self.X_.shape[0], np.inf)
 
         for idx in range(self.X_.shape[0]):
             for idx2 in range(self.X_.shape[0]):
                 if (
                     self.y_[idx] != self.y_[idx2]
                     and self.pairwise_distances[idx, idx2]
-                    < self.min_enemy_distance[idx]
+                    < self.distance_nearest_enemy[idx]
                 ):
-                    self.min_enemy_distance[idx] = self.pairwise_distances[idx, idx2]
+                    self.distance_nearest_enemy[idx] = self.pairwise_distances[
+                        idx, idx2
+                    ]
 
     def _adaptable(self, idx: int, idx2: int) -> bool:
         """
@@ -42,7 +45,8 @@ class ICF(BaseAlgorithm):
         Returns:
         bool: True if the instance is adaptable, False otherwise.
         """
-        return self.pairwise_distances[idx, idx2] < self.min_enemy_distance[idx]
+        # TODO: Check if nearest enemy if for idx or idx2
+        return self.pairwise_distances[idx, idx2] < self.distance_nearest_enemy[idx2]
 
     def _get_coverage(self, idx: int) -> int:
         """
@@ -99,7 +103,7 @@ class ICF(BaseAlgorithm):
 
             self.pairwise_distances = euclidean_distances(self.X_)
 
-            self._set_min_enemy_distance()
+            self._set_distance_nearest_enemy()
 
             self.mask = np.ones(len(self.X_), dtype=bool)
 

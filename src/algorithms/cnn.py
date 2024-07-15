@@ -3,69 +3,31 @@
 import numpy as np
 from sklearn.neighbors import KNeighborsClassifier
 import random
+from src.algorithms.base import BaseAlgorithm
 
 
-def condensed_nearest_neighbor(X, y):
-    """
-    Condensed Nearest Neighbor algorithm to reduce the training set.
+class CNN(BaseAlgorithm):
+    def __init__(self, n_neighbors=1):
+        super().__init__()
+        self.n_neighbors: int = n_neighbors
+        self.classifier = KNeighborsClassifier(n_neighbors)
+        self.mask: np.ndarray = None
 
-    Parameters:
-    X (numpy.ndarray): Feature matrix of the training data.
-    y (numpy.ndarray): Labels of the training data.
+    def select(self) -> np.ndarray:
+        self.mask = np.zeros(len(self.X), dtype=bool)
+        for cls in self.classes_:
+            randam_index = random.choice(np.where(self.y == cls)[0])
+            self.mask[randam_index] = True
 
-    Returns:
-    numpy.ndarray: Reduced feature matrix.
-    numpy.ndarray: Reduced labels.
-    """
-    # Initialize the set of prototypes with the first instance of each class
-    X_prototypes = []
-    y_prototypes = []
+        progress = True
+        while progress:
+            progress = False
+            self.classifier.fit(self.X[self.mask], self.y[self.mask])
+            for i in range(len(self.X)):
+                if not self.mask[i]:
+                    if self.classifier.predict([self.X[i]]) != self.y[i]:
+                        self.mask[i] = True
+                        progress = True
+                        break
 
-    remaining_indices = list(range(len(X)))
-
-    # Start with the first instance of each class
-    for label in np.unique(y):
-        index = random.choice(np.where(y == label)[0])
-        X_prototypes.append(X[index])
-        y_prototypes.append(y[index])
-        remaining_indices.remove(index)
-
-    # Convert lists to numpy arrays
-    X_prototypes = np.array(X_prototypes)
-    y_prototypes = np.array(y_prototypes)
-
-    # from imblearn.under_sampling import CondensedNearestNeighbour
-
-    # cnn = CondensedNearestNeighbour(random_state=42)
-    # X_prototypes, y_prototypes = cnn.fit_resample(X, y)
-    # return X_prototypes, y_prototypes
-
-    # Create a KNN classifier with k=1
-    knn = KNeighborsClassifier(n_neighbors=1)
-
-    # Iterate through all instances in the training set
-    changes = True
-    while changes:
-        changes = False
-        knn.fit(X_prototypes, y_prototypes)
-        for i in remaining_indices:
-            pred = knn.predict([X[i]])[0]
-            if pred != y[i]:
-                # Add the misclassified instance to the set of prototypes
-                X_prototypes = np.vstack([X_prototypes, X[i]])
-                y_prototypes = np.append(y_prototypes, y[i])
-                changes = True
-                break  # Restart the while loop to re-evaluate with the new prototype set
-
-    return X_prototypes, y_prototypes
-
-
-# Example usage
-if __name__ == "__main__":
-    from sklearn.datasets import load_iris
-
-    data = load_iris()
-    X, y = data.data, data.target
-    X_reduced, y_reduced = condensed_nearest_neighbor(X, y)
-    print(f"Original size: {len(X)}")
-    print(f"Reduced size: {len(X_reduced)}")
+        return np.where(self.mask)[0]

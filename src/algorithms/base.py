@@ -12,16 +12,16 @@ class BaseAlgorithm(ABC):
     """
 
     def __init__(self):
-        self.X = None
-        self.y = None
-        self.sample_indices_ = None
-        self.X_ = None
-        self.y_ = None
-        self.reduction_ratio_ = None
-        self.n_samples = None
-        self.n_features = None
-        self.classes_ = None
-        self.n_classes_ = None
+        self.X: np.ndarray = None
+        self.y: np.ndarray = None
+        self.sample_indices_: np.ndarray = None
+        self.X_: np.ndarray = None
+        self.y_: np.ndarray = None
+        self.reduction_ratio_: float = None
+        self.n_samples: int = None
+        self.n_features: int = None
+        self.classes_: np.ndarray = None
+        self.n_classes_: int = None
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> "BaseAlgorithm":
         """

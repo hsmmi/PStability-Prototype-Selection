@@ -11,10 +11,11 @@ class LDIS(BaseAlgorithm):
 
     def __init__(self, n_neighbors=3):
         super().__init__()
-        self.n_neighbors = n_neighbors
-        self.pairwise_distances_ = None
+        self.n_neighbors: int = n_neighbors
+        self.pairwise_distances_: np.ndarray = None
         # partial k-neighborhood
-        self.pkn = None
+        self.pkn: np.ndarray = None
+        self.dencity_: np.ndarray = None
 
     def _set_nearest_neighbors(self, class_members: np.ndarray):
         """

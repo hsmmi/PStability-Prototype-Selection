@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score
-from sklearn.model_selection import KFold
+from sklearn.model_selection import StratifiedKFold
 from tqdm import tqdm
 
 
@@ -32,10 +32,10 @@ def compare_prototype_selection(
     results = {key: [] for key in algorithms.keys()}
     results["Original"] = []
 
-    kf = KFold(n_splits=n_folds, shuffle=True, random_state=42)
+    kf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=42)
 
     for train_index, test_index in tqdm(
-        kf.split(X), total=n_folds, desc="K-Fold progress", leave=False
+        kf.split(X, y), total=n_folds, desc="K-Fold progress", leave=False
     ):
         X_train, X_test = X[train_index], X[test_index]
         y_train, y_test = y[train_index], y[test_index]
@@ -74,6 +74,9 @@ def compare_prototype_selection(
             }
             if init_params:
                 args.update(init_params)
+
+            # Reset random seed
+            random.seed(42)
 
             # Apply Algorithm
             X_reduced, y_reduced = algorithm(**args)
