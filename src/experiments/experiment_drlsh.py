@@ -1,14 +1,15 @@
 import random
 from src.utils.evaluation_metrics import compare_prototype_selection
-from src.algorithms.ris import RIS
 from src.algorithms.drop3 import DROP3
 from src.algorithms.notWork_drlsh import DRLSH
-
+from src.utils.result import log_result
 from sklearn.datasets import load_digits
-import tabulate
 
 # set random seed to 42
 random.seed(42)
+
+# Log the results
+log_path = "results/logs/experiment_drlsh.log"
 
 # Load diload_digits dataset
 data = load_digits()
@@ -27,56 +28,8 @@ algorithms = {
     # "RIS2": {"algorithm": RIS("RIS2", 0.1).fit_transform},
     # "RIS3": {"algorithm": RIS("RIS3", 0.1).fit_transform},
     "DRLSH": {"algorithm": DRLSH().fit_transform},
-    "DRLSH2": {"algorithm": DRLSH2().fit_transform},
 }
 
 result = compare_prototype_selection(X, y, algorithms, 3, 10)
 
-# Log the results
-log_path = "results/logs/experiment_drlsh.log"
-
-formatted_result = {
-    key: {
-        "Accuracy": result[key][0],
-        "Size": result[key][1],
-        "Reduction": result[key][2],
-        "Time": result[key][3],
-    }
-    for key in result
-}
-
-with open(log_path, "a") as f:
-    f.write(str(formatted_result) + "\n")
-
-# Print in tabulated format
-table = []
-for key in result:
-    table.append(
-        [
-            key,
-            f"{result[key][0]*100:.2f}%",
-            result[key][1],
-            f"{result[key][2]*100:.2f}%",
-            f"{result[key][3]:.2f}s",
-        ]
-    )
-
-headers = [
-    "Algorithm",
-    "Accuracy",
-    "Size",
-    "Reduction",
-    "Time",
-]
-
-# Add padding to the headers :^10
-headers = [f"{header:^10}" for header in headers]
-
-print(
-    tabulate.tabulate(
-        table,
-        headers,
-        tablefmt="fancy_grid",
-        colalign=["center"] * 5,
-    )
-)
+log_result(result, log_path, "digits")

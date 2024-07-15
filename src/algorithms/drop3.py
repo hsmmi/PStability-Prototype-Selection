@@ -8,11 +8,15 @@ from sklearn.metrics.pairwise import euclidean_distances
 
 class DROP3(BaseAlgorithm):
     def __init__(self, n_neighbors=3):
+        super().__init__()
         self.n_neighbors = n_neighbors
-        self.sample_indices_ = []
-        self.X_ = None
-        self.y_ = None
-        self.classifier = KNeighborsClassifier(n_neighbors=self.n_neighbors)
+        self.pairwise_distances = None
+        self.nearest_neighbors_complete = None
+        self.nearest_neighbors = None
+        self.nearest_enemy = None
+        self.nearest_enemy_distance = None
+        self.associates = None
+        self.mask = None
 
     def set_nearest_neighbors(self):
         self.pairwise_distances = euclidean_distances(self.X_)
@@ -101,6 +105,4 @@ class DROP3(BaseAlgorithm):
                 for neighbor in self.nearest_neighbors[a].copy():
                     self.associates[neighbor].add(a)
 
-        self.sample_indices_ = S[self.mask]
-
-        return self.sample_indices_
+        return S[self.mask]
