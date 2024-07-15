@@ -6,9 +6,11 @@ from src.algorithms.base import BaseAlgorithm
 
 class RIS(BaseAlgorithm):
     def __init__(self, method="RIS1"):
-        self.threshold = None
-        self.method = method
-        self.pairwise_distances = None
+        self.threshold: float = None
+        self.method: str = method
+        self.pairwise_distances: np.ndarray = None
+        self.scores: np.ndarray = None
+        self.radius: np.ndarray = None
 
     def _scores_redius(self) -> tuple[np.ndarray, np.ndarray]:
         """

@@ -1,16 +1,12 @@
 import numpy as np
 from sklearn.metrics import euclidean_distances
 from src.algorithms.base import BaseAlgorithm
+from src.algorithms.lssm import LSSm
 
 
-class LSSm(BaseAlgorithm):
+class LSBo(BaseAlgorithm):
     def __init__(self):
         super().__init__()
-        self.mask: np.ndarray = None
-        self.nearest_enemy: np.ndarray = None
-        self.distance_nearest_enemy: np.ndarray = None
-        self.local_set: list[set] = None
-        self.pairwise_distances: np.ndarray = None
 
     def _set_distance_nearest_enemy(self):
         """
@@ -55,38 +51,18 @@ class LSSm(BaseAlgorithm):
                 if self._reachable(idx, idx2):
                     self.local_set[idx].add(idx2)
 
-    def _get_u(self, idx: int) -> int:
-        """
-        Get the number of reachable instances from the local set.
-
-        Parameters:
-        idx (int): Index of the instance.
-
-        Returns:
-        int: Number of reachable instances.
-        """
-        len_u = 0
-        for idx2 in range(self.X_.shape[0]):
-            if idx2 != idx and idx in self.local_set[idx2]:
-                len_u += 1
-        return len_u
-
-    def _get_h(self, idx: int) -> int:
-        """
-        Get the number of reachable instances from the local set that are not in the local set.
-
-        Parameters:
-        idx (int): Index of the instance.
-
-        Returns:
-        int: Number of reachable instances that are not in the local set.
-        """
-        return len(np.where(self.nearest_enemy == idx)[0])
-
     def select(self) -> np.ndarray:
-        self.X_, self.y_ = self.X, self.y
+        """
+        Select instances from the training data.
 
-        self.mask = np.zeros(self.X_.shape[0])
+        Returns:
+        np.ndarray: Indices of the selected instances.
+        """
+        S = LSSm().fit(self.X, self.y).sample_indices_
+
+        self.X_, self.y_ = self.X[S], self.y[S]
+
+        self.mask = np.zeros(len(self.X_), dtype=bool)
 
         self.pairwise_distances = euclidean_distances(self.X_)
 
@@ -94,15 +70,13 @@ class LSSm(BaseAlgorithm):
 
         self.local_set = [set() for _ in range(self.X_.shape[0])]
         self._set_local_set()
+        len_local_set = np.array([len(local_set) for local_set in self.local_set])
 
-        u = np.zeros(self.X_.shape[0])
-        h = np.zeros(self.X_.shape[0])
+        serted_indices = np.argsort(len_local_set)
 
-        for idx in range(self.X_.shape[0]):
-            u[idx] = self._get_u(idx)
-            h[idx] = self._get_h(idx)
+        for idx in serted_indices:
+            # intersection of the local set idx and the mask is empty
+            if not self.mask[list(self.local_set[idx])].any():
+                self.mask[idx] = True
 
-            if u[idx] >= h[idx]:
-                self.mask[idx] = 1
-
-        return np.where(self.mask == 1)[0]
+        return S[self.mask]

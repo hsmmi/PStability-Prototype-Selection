@@ -93,7 +93,7 @@ class ICF(BaseAlgorithm):
         Returns:
         np.ndarray: Indices of the selected instances.
         """
-        S = ENN().fit(self.X, self.y).sample_indices_
+        S = ENN(self.n_neighbors).fit(self.X, self.y).sample_indices_
 
         progress = True
 

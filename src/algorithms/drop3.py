@@ -9,14 +9,14 @@ from sklearn.metrics.pairwise import euclidean_distances
 class DROP3(BaseAlgorithm):
     def __init__(self, n_neighbors=3):
         super().__init__()
-        self.n_neighbors = n_neighbors
-        self.pairwise_distances = None
-        self.nearest_neighbors_complete = None
-        self.nearest_neighbors = None
-        self.nearest_enemy = None
-        self.nearest_enemy_distance = None
-        self.associates = None
-        self.mask = None
+        self.n_neighbors: int = n_neighbors
+        self.pairwise_distances: np.ndarray = None
+        self.nearest_neighbors_complete: np.ndarray = None
+        self.nearest_neighbors: np.ndarray = None
+        self.nearest_enemy: np.ndarray = None
+        self.nearest_enemy_distance: np.ndarray = None
+        self.associates: list[set] = None
+        self.mask: np.ndarray = None
 
     def set_nearest_neighbors(self):
         self.pairwise_distances = euclidean_distances(self.X_)
@@ -73,7 +73,7 @@ class DROP3(BaseAlgorithm):
         return ans
 
     def select(self):
-        enn = ENN(k=self.n_neighbors)
+        enn = ENN(self.n_neighbors)
         S = enn.fit(self.X, self.y).sample_indices_
 
         self.X_ = self.X[S]
