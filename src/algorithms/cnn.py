@@ -28,6 +28,5 @@ class CNN(BaseAlgorithm):
                     if self.classifier.predict([self.X[i]]) != self.y[i]:
                         self.mask[i] = True
                         progress = True
-                        break
 
         return np.where(self.mask)[0]
