@@ -1,14 +1,16 @@
 import numpy as np
-from sklearn.metrics import euclidean_distances
+from sklearn.metrics import pairwise_distances
 from sklearn.preprocessing import MinMaxScaler
 from src.algorithms.base import BaseAlgorithm
 
 
 class RIS(BaseAlgorithm):
-    def __init__(self, method="RIS1"):
+    def __init__(self, method="RIS1", metric="euclidean"):
+        super().__init__()
+        self.metric = metric
         self.threshold: float = None
         self.method: str = method
-        self.pairwise_distances: np.ndarray = None
+        self.pairwise_distance: np.ndarray = None
         self.scores: np.ndarray = None
         self.radius: np.ndarray = None
 
@@ -26,12 +28,12 @@ class RIS(BaseAlgorithm):
 
         # TODO: Optimize this loop
         scores = np.zeros(self.n_samples)
-        self.pairwise_distances = euclidean_distances(self.X)
+        self.pairwise_distance = pairwise_distances(self.X, metric=self.metric)
         for i in range(self.n_samples):
             sm_denom = 0
             sm_num = 0
             for j in range(self.n_samples):
-                dist = self.pairwise_distances[i, j]
+                dist = self.pairwise_distance[i, j]
                 val = np.exp(-dist)
                 sm_denom += val
                 if self.y[i] == self.y[j]:
@@ -54,7 +56,7 @@ class RIS(BaseAlgorithm):
         for r in selected_indices:
             if (
                 self.y[r] == self.y[idx]
-                and self.pairwise_distances[r, idx] <= self.radius[r]
+                and self.pairwise_distance[r, idx] <= self.radius[r]
             ):
                 return False
         return True
@@ -112,7 +114,7 @@ class RIS(BaseAlgorithm):
         for idx in selected_indices:
             for r in selected_indices:
                 if self.y[r] != self.y[idx]:
-                    dist = self.pairwise_distances[r, idx]
+                    dist = self.pairwise_distance[r, idx]
                     if dist < radius[idx]:
                         radius[idx] = dist
         return radius
@@ -156,6 +158,6 @@ class RIS(BaseAlgorithm):
 
         return best_threshold
 
-    def select(self):
+    def _fit(self):
         self.threshold = self._best_threshold()
         return self._run_method()

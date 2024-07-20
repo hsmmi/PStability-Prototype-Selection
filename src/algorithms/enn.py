@@ -13,12 +13,13 @@ class ENN(BaseAlgorithm):
     k (int): Number of neighbors to use for the k-nearest neighbors algorithm. Default is 3.
     """
 
-    def __init__(self, n_neighbors: int = 3):
+    def __init__(self, n_neighbors: int = 3, metric="euclidean"):
         super().__init__()
+        self.metric = metric
         self.n_neighbors: int = n_neighbors
-        self.classifier = KNeighborsClassifier(n_neighbors)
+        self.classifier = KNeighborsClassifier(n_neighbors, metric=metric)
 
-    def select(self) -> np.ndarray:
+    def _fit(self) -> np.ndarray:
         """
         Perform the Edited Nearest Neighbors algorithm.
 

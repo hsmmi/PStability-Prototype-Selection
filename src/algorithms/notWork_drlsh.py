@@ -18,7 +18,7 @@ class DRLSH(BaseAlgorithm):
         self.W = W
         self.ST = ST
 
-    def select(self) -> np.ndarray:
+    def _fit(self) -> np.ndarray:
         Data = np.hstack((self.X, self.y.reshape(-1, 1)))
         Classes = np.unique(Data[:, -1])
 

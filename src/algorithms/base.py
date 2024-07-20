@@ -22,6 +22,7 @@ class BaseAlgorithm(ABC):
         self.n_features: int = None
         self.classes_: np.ndarray = None
         self.n_classes_: int = None
+        self.metric: str = "euclidean"
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> "BaseAlgorithm":
         """
@@ -41,14 +42,14 @@ class BaseAlgorithm(ABC):
         self.classes_ = np.unique(y)
         self.n_classes_ = len(self.classes_)
         self.sample_indices_ = []
-        self.sample_indices_ = self.select()
+        self.sample_indices_ = self._fit()
         self.X_ = X[self.sample_indices_]
         self.y_ = y[self.sample_indices_]
         self.reduction_ratio = 1 - len(self.X_) / len(X)
         return self
 
     @abstractmethod
-    def select(self) -> np.ndarray:
+    def _fit(self) -> np.ndarray:
         """
         Select instances from the training data.
 

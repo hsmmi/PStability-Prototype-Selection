@@ -22,7 +22,7 @@ X = scaler.fit_transform(X)
 
 # Compare the DROP algorithm with different methods
 algorithms = {
-    "DROP3": {"algorithm": DROP3(3).fit_transform},
+    "DROP3": {"algorithm": DROP3().fit_transform},
 }
 
 result = compare_prototype_selection(X, y, algorithms, 3, 10)

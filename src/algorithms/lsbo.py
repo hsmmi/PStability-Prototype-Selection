@@ -1,12 +1,18 @@
 import numpy as np
-from sklearn.metrics import euclidean_distances
+from sklearn.metrics import pairwise_distances
 from src.algorithms.base import BaseAlgorithm
 from src.algorithms.lssm import LSSm
 
 
 class LSBo(BaseAlgorithm):
-    def __init__(self):
+    def __init__(self, metric="euclidean"):
         super().__init__()
+        self.metric = metric
+        self.mask: np.ndarray = None
+        self.nearest_enemy: np.ndarray = None
+        self.distance_nearest_enemy: np.ndarray = None
+        self.local_set: list[set] = None
+        self.pairwise_distance: np.ndarray = None
 
     def _set_distance_nearest_enemy(self):
         """
@@ -20,12 +26,10 @@ class LSBo(BaseAlgorithm):
             for idx2 in range(self.X_.shape[0]):
                 if (
                     self.y_[idx] != self.y_[idx2]
-                    and self.pairwise_distances[idx, idx2]
+                    and self.pairwise_distance[idx, idx2]
                     < self.distance_nearest_enemy[idx]
                 ):
-                    self.distance_nearest_enemy[idx] = self.pairwise_distances[
-                        idx, idx2
-                    ]
+                    self.distance_nearest_enemy[idx] = self.pairwise_distance[idx, idx2]
                     self.nearest_enemy[idx] = idx2
 
     def _reachable(self, idx: int, idx2: int) -> bool:
@@ -39,7 +43,7 @@ class LSBo(BaseAlgorithm):
         Returns:
         bool: True if the instance is reachable, False otherwise.
         """
-        return self.pairwise_distances[idx, idx2] < self.distance_nearest_enemy[idx]
+        return self.pairwise_distance[idx, idx2] < self.distance_nearest_enemy[idx]
 
     def _set_local_set(self):
         """
@@ -51,7 +55,7 @@ class LSBo(BaseAlgorithm):
                 if self._reachable(idx, idx2):
                     self.local_set[idx].add(idx2)
 
-    def select(self) -> np.ndarray:
+    def _fit(self) -> np.ndarray:
         """
         Select instances from the training data.
 
@@ -64,7 +68,7 @@ class LSBo(BaseAlgorithm):
 
         self.mask = np.zeros(len(self.X_), dtype=bool)
 
-        self.pairwise_distances = euclidean_distances(self.X_)
+        self.pairwise_distance = pairwise_distances(self.X_, metric=self.metric)
 
         self._set_distance_nearest_enemy()
 

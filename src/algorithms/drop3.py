@@ -1,16 +1,16 @@
 import collections
 import numpy as np
-from sklearn.neighbors import KNeighborsClassifier
 from src.algorithms.base import BaseAlgorithm
 from src.algorithms.enn import ENN
-from sklearn.metrics.pairwise import euclidean_distances
+from sklearn.metrics.pairwise import pairwise_distances
 
 
 class DROP3(BaseAlgorithm):
-    def __init__(self, n_neighbors=3):
+    def __init__(self, n_neighbors: int = 3, metric="euclidean"):
         super().__init__()
+        self.metric = metric
         self.n_neighbors: int = n_neighbors
-        self.pairwise_distances: np.ndarray = None
+        self.pairwise_distance: np.ndarray = None
         self.nearest_neighbors_complete: np.ndarray = None
         self.nearest_neighbors: np.ndarray = None
         self.nearest_enemy: np.ndarray = None
@@ -19,12 +19,12 @@ class DROP3(BaseAlgorithm):
         self.mask: np.ndarray = None
 
     def set_nearest_neighbors(self):
-        self.pairwise_distances = euclidean_distances(self.X_)
+        self.pairwise_distance = pairwise_distances(self.X_, metric=self.metric)
 
-        for i in range(self.pairwise_distances.shape[0]):
-            self.pairwise_distances[i][i] = -1.0
+        for i in range(self.pairwise_distance.shape[0]):
+            self.pairwise_distance[i][i] = -1.0
 
-        self.nearest_neighbors_complete = np.argsort(self.pairwise_distances)[:, 1:]
+        self.nearest_neighbors_complete = np.argsort(self.pairwise_distance)[:, 1:]
         self.nearest_neighbors = [
             x[: self.n_neighbors] for x in self.nearest_neighbors_complete
         ]
@@ -37,8 +37,8 @@ class DROP3(BaseAlgorithm):
             self.nearest_enemy_distance[i] = np.inf
             for j in range(len(self.X_)):
                 if self.y_[i] != self.y_[j]:
-                    if self.pairwise_distances[i][j] < self.nearest_enemy_distance[i]:
-                        self.nearest_enemy_distance[i] = self.pairwise_distances[i][j]
+                    if self.pairwise_distance[i][j] < self.nearest_enemy_distance[i]:
+                        self.nearest_enemy_distance[i] = self.pairwise_distance[i][j]
                         self.nearest_enemy[i] = j
 
     def set_associates(self):
@@ -72,7 +72,7 @@ class DROP3(BaseAlgorithm):
                 ans += 1
         return ans
 
-    def select(self):
+    def _fit(self):
         enn = ENN(self.n_neighbors)
         S = enn.fit(self.X, self.y).sample_indices_
 

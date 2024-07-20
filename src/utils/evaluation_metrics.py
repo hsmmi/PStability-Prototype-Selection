@@ -65,9 +65,6 @@ def compare_prototype_selection(
 
             algorithm, init_params = value["algorithm"], value.get("init_params", None)
 
-            # Start timer
-            start_time = time.time()
-
             args = {
                 "X": X_train,
                 "y": y_train,
@@ -77,6 +74,9 @@ def compare_prototype_selection(
 
             # Reset random seed
             random.seed(42)
+
+            # Start timer
+            start_time = time.time()
 
             # Apply Algorithm
             X_reduced, y_reduced = algorithm(**args)

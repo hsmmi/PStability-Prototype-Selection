@@ -23,7 +23,7 @@ X = scaler.fit_transform(X)
 
 # Define the algorithms
 algorithms = {
-    "DROP3": {"algorithm": DROP3(3).fit_transform},
+    "DROP3": {"algorithm": DROP3().fit_transform},
     # "RIS1": {"algorithm": RIS("RIS1").fit_transform},
     "ICF": {"algorithm": ICF().fit_transform},
     "ICF2": {"algorithm": ICF2().select_data},

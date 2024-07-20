@@ -1,5 +1,5 @@
 import numpy as np
-from sklearn.metrics import euclidean_distances
+from sklearn.metrics import pairwise_distances
 from src.algorithms.base import BaseAlgorithm
 from src.algorithms.enn import ENN
 
@@ -9,12 +9,13 @@ class ICF(BaseAlgorithm):
     Iterative case filtering (ICF)
     """
 
-    def __init__(self, n_neighbors=3):
+    def __init__(self, n_neighbors: int = 3, metric="euclidean"):
         super().__init__()
+        self.metric = metric
         self.n_neighbors = n_neighbors
         self.mask: np.ndarray = None
         self.distance_nearest_enemy: np.ndarray = None
-        self.pairwise_distances: np.ndarray = None
+        self.pairwise_distance: np.ndarray = None
 
     def _set_distance_nearest_enemy(self):
         """
@@ -27,12 +28,10 @@ class ICF(BaseAlgorithm):
             for idx2 in range(self.X_.shape[0]):
                 if (
                     self.y_[idx] != self.y_[idx2]
-                    and self.pairwise_distances[idx, idx2]
+                    and self.pairwise_distance[idx, idx2]
                     < self.distance_nearest_enemy[idx]
                 ):
-                    self.distance_nearest_enemy[idx] = self.pairwise_distances[
-                        idx, idx2
-                    ]
+                    self.distance_nearest_enemy[idx] = self.pairwise_distance[idx, idx2]
 
     def _adaptable(self, idx: int, idx2: int) -> bool:
         """
@@ -46,7 +45,7 @@ class ICF(BaseAlgorithm):
         bool: True if the instance is adaptable, False otherwise.
         """
         # TODO: Check if nearest enemy if for idx or idx2
-        return self.pairwise_distances[idx, idx2] < self.distance_nearest_enemy[idx2]
+        return self.pairwise_distance[idx, idx2] < self.distance_nearest_enemy[idx2]
 
     def _get_coverage(self, idx: int) -> int:
         """
@@ -86,7 +85,7 @@ class ICF(BaseAlgorithm):
 
         return len_reachable
 
-    def select(self) -> np.ndarray:
+    def _fit(self) -> np.ndarray:
         """
         Select instances from the training data.
 
@@ -101,7 +100,7 @@ class ICF(BaseAlgorithm):
             self.X_ = self.X[S]
             self.y_ = self.y[S]
 
-            self.pairwise_distances = euclidean_distances(self.X_)
+            self.pairwise_distance = pairwise_distances(self.X_, metric=self.metric)
 
             self._set_distance_nearest_enemy()
 

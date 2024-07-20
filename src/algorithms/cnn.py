@@ -7,13 +7,14 @@ from src.algorithms.base import BaseAlgorithm
 
 
 class CNN(BaseAlgorithm):
-    def __init__(self, n_neighbors=1):
+    def __init__(self, n_neighbors: int = 1, metric="euclidean"):
         super().__init__()
+        self.metric = metric
         self.n_neighbors: int = n_neighbors
-        self.classifier = KNeighborsClassifier(n_neighbors)
+        self.classifier = KNeighborsClassifier(n_neighbors, metric=metric)
         self.mask: np.ndarray = None
 
-    def select(self) -> np.ndarray:
+    def _fit(self) -> np.ndarray:
         self.mask = np.zeros(len(self.X), dtype=bool)
         for cls in self.classes_:
             randam_index = random.choice(np.where(self.y == cls)[0])

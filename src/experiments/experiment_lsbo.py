@@ -23,7 +23,7 @@ X = scaler.fit_transform(X)
 
 # Define the algorithms
 algorithms = {
-    "DROP3": {"algorithm": DROP3(3).fit_transform},
+    "DROP3": {"algorithm": DROP3().fit_transform},
     "LSBo": {"algorithm": LSBo().fit_transform},
 }
 

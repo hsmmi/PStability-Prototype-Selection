@@ -1,7 +1,7 @@
 import random
 from src.utils.evaluation_metrics import compare_prototype_selection
 from src.algorithms.drop3 import DROP3
-from src.algorithms.ldis import LDIS
+from src.algorithms.hmnei import HMNEI
 from sklearn.datasets import load_digits
 from src.utils.result import log_result
 
@@ -9,7 +9,7 @@ from src.utils.result import log_result
 random.seed(42)
 
 # Log the results
-log_path = "results/logs/experiment_ldis.log"
+log_path = "results/logs/experiment_hmnei.log"
 
 # Load diload_digits dataset
 data = load_digits()
@@ -24,8 +24,7 @@ X = scaler.fit_transform(X)
 # Define the algorithms
 algorithms = {
     "DROP3": {"algorithm": DROP3().fit_transform},
-    # "RIS1": {"algorithm": RIS("RIS1").fit_transform},
-    "LDIS": {"algorithm": LDIS().fit_transform},
+    "HMNEI": {"algorithm": HMNEI().fit_transform},
 }
 
 result = compare_prototype_selection(X, y, algorithms, 3, 10)

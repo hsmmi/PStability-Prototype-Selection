@@ -23,7 +23,7 @@ scaler = StandardScaler()
 X = scaler.fit_transform(X)
 
 algorithms = {
-    "DROP3": {"algorithm": DROP3(3).fit_transform},
+    "DROP3": {"algorithm": DROP3().fit_transform},
     "CNN": {"algorithm": CNN().fit_transform},
 }
 
