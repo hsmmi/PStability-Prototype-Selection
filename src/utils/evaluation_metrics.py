@@ -1,11 +1,11 @@
 import random
 import time
 import numpy as np
-from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import StratifiedKFold
 from tqdm import tqdm
+from config import RANDOM_SEED
 
 
 # Compare different prororype selection with n-fold cross validation
@@ -15,6 +15,7 @@ def compare_prototype_selection(
     algorithms: dict[str, dict],
     k: int = 3,
     n_folds: int = 5,
+    distance_metric: str = "euclidean",
 ):
     """
     Compare different prototype selection algorithms using n-fold cross validation.
@@ -41,7 +42,7 @@ def compare_prototype_selection(
         y_train, y_test = y[train_index], y[test_index]
 
         # Train the KNN classifier on the reduced dataset
-        knn = KNeighborsClassifier(n_neighbors=k)
+        knn = KNeighborsClassifier(n_neighbors=k, metric=distance_metric)
         knn.fit(X_train, y_train)
 
         # Evaluate the classifier
@@ -73,7 +74,7 @@ def compare_prototype_selection(
                 args.update(init_params)
 
             # Reset random seed
-            random.seed(42)
+            random.seed(RANDOM_SEED)
 
             # Start timer
             start_time = time.time()

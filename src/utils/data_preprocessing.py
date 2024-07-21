@@ -1,33 +1,21 @@
 import pandas as pd
 import os
+from config import DATASET_PATH
+from numpy import ndarray
 
-from sklearn.discriminant_analysis import StandardScaler
 
-
-def load_data(file_path: str) -> pd.DataFrame:
+def load_data(file_name: str) -> tuple[ndarray, ndarray]:
     """
-    Load the data from the specified file path.
+    Load the data from the specified file.
 
     Parameters:
-    file_path (str): Path to the data file.
+    file_name (str): The name of the file to load.
 
     Returns:
-    pd.DataFrame: Dataframe containing the data.
+    X (numpy.ndarray): The feature matrix of the data.
+    y (numpy.ndarray): The labels of the data.
     """
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
-
-    df = pd.read_csv(file_path, header=None)
-    return df
-
-
-def preprocess_data(df: pd.DataFrame):
-    # Convert the labels[-1] to integers
-    df.iloc[:, -1] = pd.factorize(df.iloc[:, -1])[0]
-    scaler = StandardScaler()
-    df.iloc[:, :-1] = scaler.fit_transform(df.iloc[:, :-1])
-    return df
-
-
-def save_processed_data(df: pd.DataFrame, file_path):
-    df.to_csv(file_path, index=False, header=False)
+    if not os.path.exists(os.path.join(DATASET_PATH, file_name + ".csv")):
+        raise FileNotFoundError(f"File {file_name} not found in {DATASET_PATH}")
+    df = pd.read_csv(os.path.join(DATASET_PATH, file_name + ".csv"), header=None)
+    return df.iloc[:, :-1].values, df.iloc[:, -1].values

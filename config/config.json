@@ -1,0 +1,6 @@
+{
+    "random_seed": 42,
+    "log_path": "./results/logs/",
+    "dataset_path": "./data/",
+    "figure_path": "./results/figures/"
+}

@@ -1,6 +1,7 @@
-import random
+from src.utils.result import log_result
+from src.utils.data_preprocessing import load_data
+from src.utils.evaluation_metrics import compare_prototype_selection
 
-from sklearn.datasets import load_digits
 from src.algorithms.cnn import CNN
 from src.algorithms.drop3 import DROP3
 from src.algorithms.icf import ICF
@@ -9,24 +10,15 @@ from src.algorithms.lsbo import LSBo
 from src.algorithms.lssm import LSSm
 from src.algorithms.ris import RIS
 from src.algorithms.hmnei import HMNEI
-from src.utils.evaluation_metrics import compare_prototype_selection
-from src.utils.result import log_result
+from src.algorithms.notWork_nngir import NNGIR
 
-# set random seed to 42
-random.seed(42)
+DATASET_NAME = "wine"
 
-# Log the results
-log_path = "results/logs/experiment_all.log"
+# Get file name
+FILE_NAME = __file__.split("/")[-1].split(".")[0]
 
-# Load diload_digits dataset
-data = load_digits()
-X, y = data.data, data.target
-
-# Scale the data
-from sklearn.preprocessing import StandardScaler
-
-scaler = StandardScaler()
-X = scaler.fit_transform(X)
+# Load dataset
+X, y = load_data(DATASET_NAME)
 
 algorithms = {
     "CNN": {"algorithm": CNN().fit_transform},
@@ -39,8 +31,9 @@ algorithms = {
     # "RIS2": {"algorithm": RIS("RIS2").fit_transform},
     # "RIS3": {"algorithm": RIS("RIS3").fit_transform},
     "HMNEI": {"algorithm": HMNEI().fit_transform},
+    "NNGIR": {"algorithm": NNGIR().fit_transform},
 }
 
-result = compare_prototype_selection(X, y, algorithms, 3, 5)
+result = compare_prototype_selection(X, y, algorithms, 1, 10)
 
-log_result(result, log_path, "digits")
+log_result(result, FILE_NAME, DATASET_NAME)

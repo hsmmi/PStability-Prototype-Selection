@@ -1,4 +1,5 @@
 from matplotlib import pyplot as plt
+from config import FIGURE_PATH
 
 
 def plot_algorithm_results(
@@ -20,35 +21,36 @@ def plot_algorithm_results(
     y_ (numpy.ndarray): Reduced labels.
     title (str): Title of the plot.
     """
-
+    point_size = 10
     # Compare the original and reduced dataset next to each other
     _, axs = plt.subplots(1, 2, figsize=(12, 6))
-    axs[0].scatter(X[y == 0][:, 0], X[y == 0][:, 1], label="Class 0", color="red")
-    axs[0].scatter(X[y == 1][:, 0], X[y == 1][:, 1], label="Class 1", color="blue")
+    axs[0].scatter(
+        X[y == 0][:, 0], X[y == 0][:, 1], label="Class 0", color="red", s=point_size
+    )
+    axs[0].scatter(
+        X[y == 1][:, 0], X[y == 1][:, 1], label="Class 1", color="blue", s=point_size
+    )
     axs[0].set_title("Original Dataset")
     axs[0].legend()
-    X_interval = (X[:, 0].min(), X[:, 0].max())
-    y_interval = (X[:, 1].min(), X[:, 1].max())
     axs[1].scatter(
-        X_[y_ == 0][:, 0],
-        X_[y_ == 0][:, 1],
-        label="Class 0",
-        color="red",
+        X_[y_ == 0][:, 0], X_[y_ == 0][:, 1], label="Class 0", color="red", s=point_size
     )
     axs[1].scatter(
         X_[y_ == 1][:, 0],
         X_[y_ == 1][:, 1],
         label="Class 1",
         color="blue",
+        s=point_size,
     )
-    axs[1].set_xlim(X_interval)
-    axs[1].set_ylim(y_interval)
+    # Axis 1 has the same scale as axis 0
+    axs[1].set_xlim(axs[0].get_xlim())
+    axs[1].set_ylim(axs[0].get_ylim())
     axs[1].set_title("Reduced Dataset")
     axs[1].legend()
     plt.suptitle(title)
 
     if save_plot:
-        plt.savefig(f"results/figures/{title}.png")
+        plt.savefig(FIGURE_PATH + title + ".png")
     if show_plot:
         plt.show()
 

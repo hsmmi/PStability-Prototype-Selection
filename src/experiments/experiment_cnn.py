@@ -1,26 +1,18 @@
-import random
+from src.utils.result import log_result
+from src.utils.data_preprocessing import load_data
+from src.utils.evaluation_metrics import compare_prototype_selection
 
-from sklearn.datasets import load_wine
 from src.algorithms.cnn import CNN
 from src.algorithms.drop3 import DROP3
-from src.utils.evaluation_metrics import compare_prototype_selection
-from src.utils.result import log_result
 
-# set random seed to 42
-random.seed(42)
 
-# Log the results
-log_path = "results/logs/experiment_cnn.log"
+DATASET_NAME = "wine"
 
-# Load diload_wine dataset
-data = load_wine()
-X, y = data.data, data.target
+# Get file name
+FILE_NAME = __file__.split("/")[-1].split(".")[0]
 
-# Scale the data
-from sklearn.preprocessing import StandardScaler
-
-scaler = StandardScaler()
-X = scaler.fit_transform(X)
+# Load dataset
+X, y = load_data(DATASET_NAME)
 
 algorithms = {
     "DROP3": {"algorithm": DROP3().fit_transform},
@@ -29,4 +21,4 @@ algorithms = {
 
 result = compare_prototype_selection(X, y, algorithms, 3, 10)
 
-log_result(result, log_path, "wine")
+log_result(result, FILE_NAME, DATASET_NAME)
