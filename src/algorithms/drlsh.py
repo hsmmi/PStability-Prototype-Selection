@@ -7,10 +7,10 @@ from src.algorithms.base import BaseAlgorithm
 class DRLSH(BaseAlgorithm):
     def __init__(
         self,
-        M=25,
-        L=10,
-        W=1,
-        ST=9,
+        M=10,  # Number of hash functions in each table
+        L=30,  # Number of hash tables
+        W=1,  # Bucket size
+        ST=6,
     ):
         super().__init__()
         self.M = M
@@ -19,6 +19,7 @@ class DRLSH(BaseAlgorithm):
         self.ST = ST
 
     def _fit(self) -> np.ndarray:
+        self.M = int(self.X.shape[0] ** (1 / 7))
         Data = np.hstack((self.X, self.y.reshape(-1, 1)))
         Classes = np.unique(Data[:, -1])
 
@@ -27,14 +28,13 @@ class DRLSH(BaseAlgorithm):
         Data[:, :-1] = scaler.fit_transform(Data[:, :-1])
 
         Dimension = Data.shape[1] - 1  # Number of features
-        M = self.M  # Number of hash functions in each table
-        L = self.L  # Number of hash tables
-        W = self.W  # Bucket size
         Frequency_Neighbors_Threshold = self.ST
 
         np.random.seed(0)  # Reset Random Number Generator
-        a = np.random.normal(0, 1, (M * L, Dimension))  # Generate a in floor((ax+b)/W)
-        b = W * np.random.rand(M * L, 1)  # Generate b in floor((ax+b)/W)
+        a = np.random.normal(
+            0, 1, (self.M * self.L, Dimension)
+        )  # Generate a in floor((ax+b)/W)
+        b = self.W * np.random.rand(self.M * self.L, 1)  # Generate b in floor((ax+b)/W)
 
         # Calculating the buckets of samples
         Bucket_Index_Decimal_All = np.zeros((self.L, Data.shape[0]), dtype=np.int32)
@@ -63,7 +63,7 @@ class DRLSH(BaseAlgorithm):
             )
             ss += Bucket_Index_Decimal.shape[0]
 
-        Removed_Samples_Index_ALL = np.zeros(Data.shape[0], dtype=np.int32)
+        Removed_Samples_Index_ALL = []
         RSC = 0
         for classID in Classes:
             All_Indexes = np.where(Data[:, -1] == classID)[0]
@@ -74,7 +74,7 @@ class DRLSH(BaseAlgorithm):
             while iii < len(All_Indexes):
                 Current_Sample_Bucket_Index_Decimal = Bucket_Index_Decimal_All_Class[
                     :, iii
-                ]
+                ].copy()
                 Bucket_Index_Decimal_All_Class[:, iii] = -1
                 Number_of_Common_Buckets = np.sum(
                     Bucket_Index_Decimal_All_Class
@@ -90,10 +90,7 @@ class DRLSH(BaseAlgorithm):
                 Removed_Samples_Current = uniqued_Neighbors[
                     Frequency_Neighbors >= Frequency_Neighbors_Threshold
                 ]
-                Removed_Samples_Index_ALL[RSC : RSC + len(Removed_Samples_Current)] = (
-                    Removed_Samples_Current
-                )
-                RSC += len(Removed_Samples_Current)
+                Removed_Samples_Index_ALL += Removed_Samples_Current.tolist()
 
                 Temporal_Removed_Samples.extend(Removed_Samples_Current)
                 if (
@@ -114,8 +111,9 @@ class DRLSH(BaseAlgorithm):
                 iii += 1
 
         Removed_Samples_Index_ALL = np.unique(Removed_Samples_Index_ALL)
+        # Remove -1
         Removed_Samples_Index_ALL = Removed_Samples_Index_ALL[
-            Removed_Samples_Index_ALL != 0
+            Removed_Samples_Index_ALL != -1
         ]
         Selected_Data_Index = np.setdiff1d(
             np.arange(Data.shape[0]), Removed_Samples_Index_ALL
