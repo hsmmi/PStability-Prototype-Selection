@@ -10,7 +10,7 @@ from src.algorithms.lsbo import LSBo
 from src.algorithms.lssm import LSSm
 from src.algorithms.ris import RIS
 from src.algorithms.hmnei import HMNEI
-from src.algorithms.notWork_nngir import NNGIR
+from src.algorithms.nngir import NNGIR
 
 DATASET_NAME = "wine"
 

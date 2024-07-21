@@ -14,7 +14,6 @@ FILE_NAME = __file__.split("/")[-1].split(".")[0]
 # Load dataset
 X, y = load_data(DATASET_NAME)
 
-
 # Define the algorithms
 algorithms = {
     "DROP3": {"algorithm": DROP3().fit_transform},

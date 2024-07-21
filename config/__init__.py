@@ -1,7 +1,5 @@
-# Define the path to the config file
 import json
 import os
-
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "./config.json")
 

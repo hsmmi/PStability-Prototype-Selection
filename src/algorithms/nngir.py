@@ -88,9 +88,13 @@ class NNGIR(BaseAlgorithm):
         self.core_instances = np.array(self.core_instances)
 
     def _distance_to_nearest_enemy(self, idx: int) -> float:
-        nearest_neighbour = self.NNr[idx]
+        nearest_neighbours = self.NNr[idx]
+        # There must be enemy in NNr because the instance is not a core instance and it's on border
+        enemy_neighbours = [
+            idx2 for idx2 in nearest_neighbours if self.y_[idx] != self.y_[idx2]
+        ]
         distances_to_neighbours = pairwise_distances(
-            self.X_[idx].reshape(1, -1), self.X_[list(nearest_neighbour)]
+            self.X_[idx].reshape(1, -1), self.X_[list(enemy_neighbours)]
         )
         return np.min(distances_to_neighbours)
 
@@ -122,7 +126,7 @@ class NNGIR(BaseAlgorithm):
         self.border_instances = np.array(self.border_instances)
 
     def _fit(self) -> np.ndarray:
-        self.S = np.arange(self.n_samples)
+        self.S = np.arange(self.X.shape[0])
         self.X_, self.y_ = self.X, self.y
         self._set_nan_search()
         self._noise_filter()

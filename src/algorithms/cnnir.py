@@ -39,7 +39,7 @@ class CNNIR(BaseAlgorithm):
                 r += 1
 
     def _noise_filter(self) -> None:
-        self.edited_set = []
+        edited_set = []
 
         indices = np.where(self.Nb)[0]  # Filter instances without natural neighbors
 
@@ -49,33 +49,36 @@ class CNNIR(BaseAlgorithm):
             predominant_class = np.argmax(np.bincount(nn_labels))
 
             if self.y[idx] == predominant_class:
-                self.edited_set.append(idx)
+                edited_set.append(idx)
 
-        self.edited_set = np.array(self.edited_set)
+        self.S = self.S[edited_set]
 
     def _search_core_instances(self) -> None:
         self.core_instances = []
-        candidates = self.edited_set.copy()
+        candidates = np.arange(self.X_.shape[0])
         while True:
             # Check if Nb is all zeros
-            if not self.Nb.any() or candidates.size == 0:
+            if not self.Nb[candidates].any() or candidates.size == 0:
                 break
             # Find the instance with the maximum number of natural neighbors
-            # which is in the edited set
-            idx = candidates[np.argmax(self.Nb[candidates])]
+            candidate_max_idx = np.argmax(self.Nb[candidates])
+            idx = candidates[candidate_max_idx]
             natural_neighbors = self.NaN[idx]
             if all(self.Nb[neighbour] > 0 for neighbour in natural_neighbors):
                 self.core_instances.append(idx)
                 self.Nb[idx] = 0
                 for neighbour in natural_neighbors:
-                    # TODO: Check if it should be -=1
                     self.Nb[neighbour] = 0
             else:
-                candidates = np.delete(candidates, np.where(candidates == idx))
+                candidates = np.delete(candidates, candidate_max_idx)
+
+        self.core_instances = np.array(self.core_instances)
 
     def _fit(self) -> np.ndarray:
+        self.S = np.arange(self.X.shape[0])
         self._set_nan_search()
         self._noise_filter()
+        self.X_, self.y_ = self.X[self.S], self.y[self.S]
         self._search_core_instances()
         reduced_set = np.union1d(self.edited_set, self.core_instances)
         return reduced_set
