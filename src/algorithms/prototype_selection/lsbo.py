@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.metrics import pairwise_distances
-from src.algorithms.base import BaseAlgorithm
-from src.algorithms.lssm import LSSm
+from src.algorithms.prototype_selection.base import BaseAlgorithm
+from src.algorithms.prototype_selection.lssm import LSSm
 
 
 class LSBo(BaseAlgorithm):

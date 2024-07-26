@@ -1,7 +1,7 @@
 from src.utils.data_preprocessing import load_data
 from src.utils.evaluation_metrics import compare_prototype_selection
-from src.algorithms.drop3 import DROP3
-from src.algorithms.drlsh import DRLSH
+from src.algorithms.prototype_selection.drop3 import DROP3
+from src.algorithms.prototype_selection.drlsh import DRLSH
 from src.utils.result import log_result
 
 DATASET_NAME = "moons_0.15"

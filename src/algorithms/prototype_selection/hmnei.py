@@ -1,7 +1,7 @@
 import time
 import numpy as np
 from sklearn.neighbors import KNeighborsClassifier
-from src.algorithms.base import BaseAlgorithm
+from src.algorithms.prototype_selection.base import BaseAlgorithm
 from sklearn.metrics import pairwise_distances
 
 

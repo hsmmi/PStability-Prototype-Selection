@@ -2,7 +2,7 @@ from src.utils.result import log_result
 from src.utils.data_preprocessing import load_data
 from src.utils.evaluation_metrics import compare_prototype_selection
 
-from src.algorithms.drop3 import DROP3 as DROP3
+from src.algorithms.prototype_selection.drop3 import DROP3 as DROP3
 
 DATASET_NAME = "wine"
 

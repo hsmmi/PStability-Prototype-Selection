@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.metrics import pairwise_distances
-from src.algorithms.base import BaseAlgorithm
+from src.algorithms.prototype_selection.base import BaseAlgorithm
 
 
 class LSSm(BaseAlgorithm):

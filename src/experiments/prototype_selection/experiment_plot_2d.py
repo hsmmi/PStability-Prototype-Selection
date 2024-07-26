@@ -1,15 +1,15 @@
 from src.utils.visualization import plot_algorithm_results
 from src.utils.data_preprocessing import load_data
 
-from src.algorithms.cnn import CNN
-from src.algorithms.drop3 import DROP3
-from src.algorithms.icf import ICF
-from src.algorithms.ldis import LDIS
-from src.algorithms.lsbo import LSBo
-from src.algorithms.lssm import LSSm
-from src.algorithms.ris import RIS
-from src.algorithms.hmnei import HMNEI
-from src.algorithms.nngir import NNGIR
+from src.algorithms.prototype_selection.cnn import CNN
+from src.algorithms.prototype_selection.drop3 import DROP3
+from src.algorithms.prototype_selection.icf import ICF
+from src.algorithms.prototype_selection.ldis import LDIS
+from src.algorithms.prototype_selection.lsbo import LSBo
+from src.algorithms.prototype_selection.lssm import LSSm
+from src.algorithms.prototype_selection.ris import RIS
+from src.algorithms.prototype_selection.hmnei import HMNEI
+from src.algorithms.prototype_selection.nngir import NNGIR
 
 import tqdm
 

@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.metrics import pairwise_distances
 from sklearn.preprocessing import MinMaxScaler
-from src.algorithms.base import BaseAlgorithm
+from src.algorithms.prototype_selection.base import BaseAlgorithm
 
 
 class RIS(BaseAlgorithm):

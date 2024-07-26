@@ -3,7 +3,7 @@
 import numpy as np
 from sklearn.neighbors import KNeighborsClassifier
 import random
-from src.algorithms.base import BaseAlgorithm
+from src.algorithms.prototype_selection.base import BaseAlgorithm
 
 
 class CNN(BaseAlgorithm):

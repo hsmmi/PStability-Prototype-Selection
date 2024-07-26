@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.metrics import pairwise_distances
-from src.algorithms.base import BaseAlgorithm
-from src.algorithms.enn import ENN
+from src.algorithms.prototype_selection.base import BaseAlgorithm
+from src.algorithms.prototype_selection.enn import ENN
 
 
 class ICF(BaseAlgorithm):

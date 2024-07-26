@@ -1,7 +1,7 @@
 import collections
 import numpy as np
-from src.algorithms.base import BaseAlgorithm
-from src.algorithms.enn import ENN
+from src.algorithms.prototype_selection.base import BaseAlgorithm
+from src.algorithms.prototype_selection.enn import ENN
 from sklearn.metrics.pairwise import pairwise_distances
 
 
