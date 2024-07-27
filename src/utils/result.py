@@ -37,9 +37,9 @@ def log_result(result, file_name, dataset, log_file=True, log_console=True) -> N
             table.append(
                 [
                     key,
-                    f"{result[key][0]*100:.2f}%",
+                    f"{result[key][0]:.2%}",
                     result[key][1],
-                    f"{result[key][2]*100:.2f}%",
+                    f"{result[key][2]:.2%}",
                     f"{result[key][3]:.3f}s",
                 ]
             )
@@ -60,7 +60,7 @@ def log_result(result, file_name, dataset, log_file=True, log_console=True) -> N
                 table,
                 headers,
                 tablefmt="fancy_grid",
-                numalign="right",
-                stralign="right",
+                numalign="center",
+                stralign="center",
             )
         )
