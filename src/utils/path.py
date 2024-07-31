@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import logging
 
 
@@ -58,7 +59,8 @@ class ProjectPath:
             str: The safe filename for saving files.
         """
         relative_path = self.get_relative_path()
-        safe_filename = relative_path.replace(Path.sep, "_")
+        # Use os.path.sep instead of Path.sep
+        safe_filename = relative_path.replace(os.path.sep, "_")
         return Path(safe_filename).stem
 
 
