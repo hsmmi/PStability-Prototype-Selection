@@ -17,7 +17,9 @@ import tqdm
 DATASET_NAME = "digits"
 
 # Get file name
-FILE_NAME = __file__.split("/")[-1].split(".")[0]
+from src.utils.path import ProjectPath
+
+FILE_NAME = ProjectPath(__file__).get_safe_filename()
 
 datasets = ["iris", "wine", "moons_0.15", "circles_0.05"]
 

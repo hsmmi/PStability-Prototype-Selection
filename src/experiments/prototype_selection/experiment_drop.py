@@ -7,7 +7,9 @@ from src.algorithms.prototype_selection.drop3 import DROP3 as DROP3
 DATASET_NAME = "wine"
 
 # Get file name
-FILE_NAME = __file__.split("/")[-1].split(".")[0]
+from src.utils.path import ProjectPath
+
+FILE_NAME = ProjectPath(__file__).get_safe_filename()
 
 # Load dataset
 X, y = load_data(DATASET_NAME)

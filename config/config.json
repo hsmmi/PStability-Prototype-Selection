@@ -2,5 +2,67 @@
     "random_seed": 42,
     "log_path": "./results/logs/",
     "dataset_path": "./data/",
-    "figure_path": "./results/figures/"
+    "figure_path": "./results/figures/",
+    "logging_config": {
+        "version": 1,
+        "disable_existing_loggers": false,
+        "formatters": {
+            "simple": {
+                "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            },
+            "detailed": {
+                "format": "[%(levelname)s|%(module)s|%(lineno)d] %(asctime)s: %(message)s]",  
+                "datefmt": "%Y-%m-%dT%H:%M:%S"
+            },
+            "json": {
+                "()": "mylogger.MyJsonFormatter",
+                "fmt_keys": {
+                    "level": "levelname",
+                    "message": "message",
+                    "timestamp": "timestamp",
+                    "logger": "name",
+                    "module": "module",
+                    "function": "funcName",
+                    "line": "lineno",
+                    "path": "pathname",
+                    "process": "process",
+                    "thread_name": "threadName"
+                }
+            }
+        },
+        "handlers": {
+            "stderr": {
+                "class": "logging.StreamHandler",
+                "level": "WARNING",
+                "formatter": "detailed",
+                "stream": "ext://sys.stderr"
+            },
+            "stdout": {
+                "class": "logging.StreamHandler",
+                "level": "DEBUG",
+                "formatter": "simple",
+                "filters": ["non_error_filter"],
+                "stream": "ext://sys.stdout"
+            },
+            "file": {
+                "class": "logging.handlers.RotatingFileHandler",
+                "level": "DEBUG",
+                "formatter": "json",
+                "filename": "./logs/log.jsonl",
+                "maxBytes": 10485760, 
+                "backupCount": 3
+            }
+        },
+        "loggers": {
+            "root": {
+                "level": "DEBUG",
+                "handlers": ["stdout", "stderr", "file"]
+            }
+        },
+        "filters": {
+            "non_error_filter": {
+                "()": "mylogger.NonErrorFilter"
+            }
+        }
+    }
 }

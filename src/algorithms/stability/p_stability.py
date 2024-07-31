@@ -7,7 +7,9 @@ from src.utils.data_preprocessing import load_data
 
 
 class PStability:
-    def __init__(self, X_train, y_train, X_test, y_test, n_neighbors=5):
+    def __init__(
+        self, X_train, y_train, X_test, y_test, n_neighbors=5, show_progress=True
+    ):
         """
         Initializes the PStability object.
 
@@ -17,6 +19,7 @@ class PStability:
             X_test (np.ndarray): Test data features.
             y_test (np.ndarray): Test data labels.
             n_neighbors (int): Number of neighbors for KNeighborsClassifier.
+            show_progress (bool): Whether to show the tqdm progress bar.
         """
         # Initialize training and test data
         self.X_train = X_train
@@ -44,6 +47,9 @@ class PStability:
         # Calculate and store the base accuracy
         self.base_accuracy = self._get_accuracy()
 
+        # Set the show_progress flag
+        self.show_progress = show_progress
+
     def _get_accuracy(self):
         """
         Trains the KNN model on the selected indices and computes the accuracy on the test set.
@@ -59,7 +65,7 @@ class PStability:
         # Compute and return the accuracy on the test set
         return self.knn.score(self.X_test, self.y_test)
 
-    def _find_maximum_p(self, epsilon: float = 0.0) -> int:
+    def find_maximum_p(self, epsilon: float = 0.0) -> int:
         """
         Finds the maximum p where accuracy is maintained within the threshold.
 
@@ -80,6 +86,7 @@ class PStability:
                 ),
                 desc=f"Finding maximum p, Evaluating p={p}",  # Description of the current progress
                 leave=False,
+                disable=not self.show_progress,  # Disable tqdm if show_progress is False
             ):
 
                 # Calculate the accuracy with the current set of selected indices
@@ -93,7 +100,7 @@ class PStability:
         # If no significant drop in accuracy is found, return n_samples
         return self.n_samples
 
-    def _find_epsilon(self, p: int):
+    def find_epsilon(self, p: int):
         """
         Finds the appropriate epsilon value for a given p value that maintains accuracy.
 
@@ -111,6 +118,7 @@ class PStability:
             self.combination_generator.set_params(self.n_samples, self.n_samples - p),
             desc=f"Find epsilon, Evaluating p={p}",
             leave=False,
+            disable=not self.show_progress,  # Disable tqdm if show_progress is False
         ):
 
             # Calculate the accuracy with the current set of selected indices
@@ -139,11 +147,11 @@ if __name__ == "__main__":
     )
 
     # Initialize PStability with training and test sets
-    p_stability = PStability(X_train, y_train, X_test, y_test)
+    p_stability = PStability(X_train, y_train, X_test, y_test, show_progress=True)
 
     p_list = [1, 2, 3]
     for p in p_list:
-        max_decrease, avg_decrease = p_stability._find_epsilon(p)
+        max_decrease, avg_decrease = p_stability.find_epsilon(p)
         print(
             f"For p={p}, max decrease: {max_decrease:.6f}, avg decrease: {avg_decrease:.6f}"
         )
