@@ -1,9 +1,13 @@
+from typing import Optional
 import numpy as np
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from tqdm import tqdm
 from src.algorithms.stability.combination_generator import CombinationGenerator
 from src.utils.data_preprocessing import load_data
+from config.log import get_logger
+
+logger = get_logger("mylogger")
 
 
 class PStability:
@@ -65,19 +69,22 @@ class PStability:
         # Compute and return the accuracy on the test set
         return self.knn.score(self.X_test, self.y_test)
 
-    def find_maximum_p(self, epsilon: float = 0.0) -> int:
+    def find_maximum_p(self, epsilon: float = 0.0, max_limit: int = None) -> int:
         """
         Finds the maximum p where accuracy is maintained within the threshold.
 
         Args:
             epsilon (float): Tolerance for accuracy drop.
+            max_limit (int): Maximum number of samples to remove. Default is None.
 
         Returns:
             int: Maximum number of samples that can be removed without dropping accuracy
                  below the threshold.
         """
+        if max_limit is None:
+            max_limit = self.n_samples
         # Iterate through different sizes of removed sets
-        for p in range(1, self.n_samples + 1):
+        for p in range(1, max_limit + 1):
 
             # Display progress bar with tqdm, with leave=False to remove it after completion
             for self._selected_indices in tqdm(
@@ -137,21 +144,115 @@ class PStability:
         return max_decrease, avg_decrease
 
 
-if __name__ == "__main__":
-    # Load the data
-    X, y = load_data("wine")
+class PStabilityResults:
+    def __init__(
+        self,
+        max_p: Optional[int],
+        max_epsilon: Optional[list[float]],
+        avg_epsilon: Optional[list[float]],
+    ):
+        self.max_p = max_p
+        self.max_epsilon = max_epsilon
+        self.avg_epsilon = avg_epsilon
 
-    # Split the data into training and test sets
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.3, random_state=42
-    )
-
-    # Initialize PStability with training and test sets
-    p_stability = PStability(X_train, y_train, X_test, y_test, show_progress=True)
-
-    p_list = [1, 2, 3]
-    for p in p_list:
-        max_decrease, avg_decrease = p_stability.find_epsilon(p)
-        print(
-            f"For p={p}, max decrease: {max_decrease:.6f}, avg decrease: {avg_decrease:.6f}"
+    def __str__(self):
+        return (
+            f"PStabilityResults(max_p={self.max_p}, "
+            f"max_epsilon={self.max_epsilon}, "
+            f"avg_epsilon={self.avg_epsilon})"
         )
+
+    def get_max_epsilon_percentage(self) -> Optional[list[str]]:
+        if self.max_epsilon:
+            return [f"{epsilon:.2%}" for epsilon in self.max_epsilon]
+        return None
+
+    def get_avg_epsilon_percentage(self) -> Optional[list[str]]:
+        if self.avg_epsilon:
+            return [f"{epsilon:.2%}" for epsilon in self.avg_epsilon]
+        return None
+
+
+def run_p_stability(
+    X: np.ndarray,
+    y: np.ndarray,
+    n_folds: int = 5,
+    n_neighbors: int = 5,
+    find_max_p: bool = False,
+    find_epsilon: Optional[list[int]] = None,
+    show_progress: bool = False,
+) -> PStabilityResults:
+    """
+    Run the PStability algorithm on the given dataset using k-fold cross-validation.
+    The algorithm finds the maximum p value and epsilon values for each fold.
+
+    Parameters:
+    X (np.ndarray): Feature matrix of the dataset.
+    y (np.ndarray): Labels of the dataset.
+    n_folds (int): Number of folds for cross-validation. Default is 5.
+    n_neighbors (int): Number of neighbors for k-NN. Default is 5.
+    find_max_p (bool): Whether to find the maximum p value. Default is True.
+    find_epsilon (list[int], optional): list of p values to find the epsilon value. Default is None.
+    show_progress (bool): Whether to use tqdm for progress tracking. Default is False.
+
+    Returns:
+    PStabilityResults: Object containing max_p, max_epsilon, and avg_epsilon.
+    """
+    if find_epsilon is None:
+        find_epsilon = []
+
+    if not find_max_p and not find_epsilon:
+        raise ValueError(
+            "At least one of find_max_p or find_epsilon must be provided and valid."
+        )
+
+    kf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=42)
+    max_p = []
+    max_epsilon = [[] for _ in find_epsilon]
+    avg_epsilon = [[] for _ in find_epsilon]
+
+    for train_index, test_index in tqdm(
+        kf.split(X, y),
+        total=n_folds,
+        desc="K-Fold progress",
+        leave=False,
+        disable=not show_progress,
+    ):
+        X_train, X_test = X[train_index], X[test_index]
+        y_train, y_test = y[train_index], y[test_index]
+
+        p_stability = PStability(
+            X_train,
+            y_train,
+            X_test,
+            y_test,
+            n_neighbors=n_neighbors,
+            show_progress=show_progress,
+        )
+
+        if find_max_p:
+            max_p_value = p_stability.find_maximum_p()
+            max_p.append(max_p_value)
+            # Use tqdm.write to print without tqdm progress bar for logging
+            logger.debug(
+                f"Fold p={max_p_value}: max_p={max_p_value}", extra={"use_tqdm": True}
+            )
+
+        for i, p in enumerate(find_epsilon):
+            tmp_max, tmp_avg = p_stability.find_epsilon(p)
+            max_epsilon[i].append(tmp_max)
+            avg_epsilon[i].append(tmp_avg)
+            logger.debug(
+                f"Fold p={p}: max_epsilon={tmp_max}, avg_epsilon={tmp_avg}",
+                extra={"use_tqdm": True},
+            )
+
+    max_p_value = np.min(max_p) if find_max_p else None
+    max_epsilon_values = np.max(max_epsilon, axis=1) if find_epsilon else None
+    avg_epsilon_values = np.mean(avg_epsilon, axis=1) if find_epsilon else None
+
+    return PStabilityResults(
+        max_p=max_p_value,
+        max_epsilon=max_epsilon_values,
+        avg_epsilon=avg_epsilon_values,
+    )

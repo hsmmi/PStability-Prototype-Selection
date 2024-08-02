@@ -2,6 +2,7 @@ import datetime as dt
 import json
 import logging
 from typing import override
+from tqdm import tqdm
 
 
 class MyJsonFormatter(logging.Formatter):
@@ -17,9 +18,9 @@ class MyJsonFormatter(logging.Formatter):
     def _prepare_log_dict(self, record: logging.LogRecord) -> dict:
         always_keys = {
             "message": record.getMessage(),
-            "timestamp": dt.datetime.fromtimestamp(
-                record.created, tz=dt.timezone.utc
-            ).isoformat(),
+            "timestamp": dt.datetime.fromtimestamp(record.created).strftime(
+                "%Y-%m-%dT%H:%M:%S"
+            ),
         }
         if record.exc_info:
             always_keys["exception"] = self.formatException(record.exc_info)
@@ -47,3 +48,28 @@ class NonErrorFilter(logging.Filter):
     @override
     def filter(self, record: logging.LogRecord) -> bool | logging.LogRecord:
         return record.levelno <= logging.INFO
+
+
+class TqdmLoggingHandler(logging.Handler):
+    def __init__(self):
+        super().__init__()
+
+    @override
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            tqdm.write(msg)
+            self.flush()
+        except Exception:
+            self.handleError(record)
+
+
+class TqdmFilter(logging.Filter):
+    def __init__(self, include=False):
+        super().__init__()
+        self.include = include
+
+    @override
+    def filter(self, record):
+        use_tqdm = getattr(record, "use_tqdm", False)
+        return use_tqdm if self.include else not use_tqdm

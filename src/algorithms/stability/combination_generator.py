@@ -27,9 +27,9 @@ class CombinationGenerator:
         Returns:
             CombinationGenerator: Returns the instance itself.
         """
-        if not isinstance(n, int) or n <= 0:
+        if n <= 0:
             raise ValueError("n must be a positive integer.")
-        if not isinstance(p, int) or p <= 0:
+        if p <= 0:
             raise ValueError("p must be a positive integer.")
         if p > n:
             raise ValueError("p cannot be greater than the number of indices (n).")

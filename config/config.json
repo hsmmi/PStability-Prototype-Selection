@@ -15,7 +15,7 @@
                 "datefmt": "%Y-%m-%dT%H:%M:%S"
             },
             "json": {
-                "()": "mylogger.MyJsonFormatter",
+                "()": "config.mylogger.MyJsonFormatter",
                 "fmt_keys": {
                     "level": "levelname",
                     "message": "message",
@@ -41,7 +41,7 @@
                 "class": "logging.StreamHandler",
                 "level": "DEBUG",
                 "formatter": "simple",
-                "filters": ["non_error_filter"],
+                "filters": ["non_error_filter", "tqdm_filter_exclude"],
                 "stream": "ext://sys.stdout"
             },
             "file": {
@@ -50,18 +50,33 @@
                 "formatter": "json",
                 "filename": "./logs/log.jsonl",
                 "maxBytes": 10485760, 
-                "backupCount": 3
+                "backupCount": 3,
+                "encoding": "utf8"
+            },
+            "tqdm": {
+                "class": "config.mylogger.TqdmLoggingHandler",
+                "level": "DEBUG",
+                "formatter": "simple",
+                "filters": ["tqdm_filter_include"]
             }
         },
         "loggers": {
             "root": {
                 "level": "DEBUG",
-                "handlers": ["stdout", "stderr", "file"]
+                "handlers": ["stdout", "stderr", "file", "tqdm"]
             }
         },
         "filters": {
             "non_error_filter": {
-                "()": "mylogger.NonErrorFilter"
+                "()": "config.mylogger.NonErrorFilter"
+            },
+            "tqdm_filter_exclude": {
+            "()": "config.mylogger.TqdmFilter",
+            "include": false
+            },
+            "tqdm_filter_include": {
+                "()": "config.mylogger.TqdmFilter",
+                "include": true
             }
         }
     }
