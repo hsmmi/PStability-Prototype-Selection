@@ -1,5 +1,6 @@
 import itertools
-from typing import Optional
+from math import sqrt
+from typing import Iterator, Optional
 import numpy as np
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.neighbors import KNeighborsClassifier
@@ -8,8 +9,6 @@ from src.algorithms.stability.combination_generator import CombinationGenerator
 from src.utils.data_preprocessing import load_data
 from config.log import get_logger
 import time
-import os
-from src.utils.multiprocessing_manager import MultiprocessingManager
 import multiprocessing as mp
 
 logger = get_logger("mylogger")
@@ -81,7 +80,7 @@ class PStability:
 
     def _check_accuracy_drop(self, selected_indices, epsilon):
         self._selected_indices = selected_indices
-        return self._get_accuracy() >= self.base_accuracy - epsilon
+        return self._get_accuracy() < self.base_accuracy - epsilon
 
     def find_maximum_p(self, epsilon: float = 0.0, max_limit: int = None) -> int:
         if max_limit is None:
@@ -117,7 +116,7 @@ class PStability:
         accuracy = self._get_accuracy()
         return self.base_accuracy - accuracy
 
-    def _worker(self, batch, results_dict, process_id) -> list:
+    def _worker(self, batch, results_dict, process_id, lock) -> list:
         batch_max_decrease = -1
         batch_sum_decrease = 0.0
         batch_count = 0
@@ -128,39 +127,52 @@ class PStability:
             batch_count += 1
             if decrease > batch_max_decrease:
                 batch_max_decrease = decrease
-        list(set(np.arange(self.n_samples)) - set(selected_indices))
-        with self.lock:
-            results_dict[process_id]["sum_decrease"] += batch_sum_decrease
-            results_dict[process_id]["count"] += batch_count
-            if batch_max_decrease > results_dict[process_id]["max_decrease"]:
-                results_dict[process_id]["max_decrease"] = batch_max_decrease
+
+        with lock:
+            results = results_dict[process_id]
+            results["sum_decrease"] += batch_sum_decrease
+            results["count"] += batch_count
+            if batch_max_decrease > results["max_decrease"]:
+                results["max_decrease"] = batch_max_decrease
+            results_dict[process_id] = results
 
         return batch
 
-    def find_epsilon(self, p: int, batch_size=1000) -> tuple[float, float]:
+    def _batch_combinations(self, iterable: Iterator, batch_size: int) -> Iterator:
+        """
+        Batch data into tuples of length batch_size. The last batch may be shorter.
+
+        Args:
+            iterable (Iterator): An iterator over the combinations.
+            batch_size (int): The size of each batch.
+
+        Yields:
+            Iterator: An iterator over the batches.
+        """
+        it = iter(iterable)
+        while True:
+            batch = list(itertools.islice(it, batch_size))
+            if not batch:
+                break
+            yield batch
+
+    def find_epsilon(self, p: int, batch_size=None) -> tuple[float, float]:
         combination_generator = CombinationGenerator().configure(
             self.n_samples, self.n_samples - p
         )
         total_combinations = len(combination_generator)
 
+        if batch_size is None:
+            batch_size = min(int(sqrt(total_combinations / self.n_jobs)), 1000)
+
         manager = mp.Manager()
         results_dict = manager.dict(
             {
-                i: {"max_decrease": -1, "sum_decrease": 0.0, "count": 0}
+                i: {"max_decrease": 0, "sum_decrease": 0.0, "count": 0}
                 for i in range(self.n_jobs)
             }
         )
-        self.lock = manager.Lock()
-
-        def batched(iterable: iter, n: int) -> iter:
-            """Batch data into tuples of length n. The last batch may be shorter."""
-            it = iter(iterable)
-            while True:
-                batch = list(itertools.islice(it, n))
-                if not batch:
-                    break
-                removed_indices = list(set(np.arange(self.n_samples)) - set(batch[0]))
-                yield batch
+        lock = manager.Lock()
 
         with mp.Pool(processes=self.n_jobs) as pool:
             with tqdm(
@@ -169,11 +181,13 @@ class PStability:
                 leave=False,
                 disable=not self.show_progress,
             ) as pbar:
-                for idx, batch in enumerate(batched(combination_generator, batch_size)):
+                for idx, batch in enumerate(
+                    self._batch_combinations(combination_generator, batch_size)
+                ):
                     process_id = idx % self.n_jobs
                     pool.apply_async(
                         self._worker,
-                        (batch, results_dict, process_id),
+                        (batch, results_dict, process_id, lock),
                         callback=lambda ret_batch: pbar.update(len(ret_batch)),
                     )
                     logger.debug(
