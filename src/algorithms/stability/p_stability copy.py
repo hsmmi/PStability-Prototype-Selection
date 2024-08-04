@@ -8,9 +8,8 @@ from src.algorithms.stability.combination_generator import CombinationGenerator
 from src.utils.data_preprocessing import load_data
 from config.log import get_logger
 import time
+import concurrent.futures
 import os
-from src.utils.multiprocessing_manager import MultiprocessingManager
-import multiprocessing as mp
 
 logger = get_logger("mylogger")
 
@@ -69,133 +68,196 @@ class PStability:
 
         # Set the number of parallel jobs
         if n_jobs is None:
-            n_jobs = mp.cpu_count()
+            n_jobs = os.cpu_count()
         self.n_jobs = n_jobs
 
     def _get_accuracy(self):
+        """
+        Trains the KNN model on the selected indices and computes the accuracy on the test set.
+
+        Returns:
+            float: Accuracy of the model on the test set.
+        """
+        # Train the KNN model using the selected indices in the training set
         knn = self.model(n_neighbors=self.n_neighbors)
         knn.fit(
             self.X_train[self._selected_indices], self.y_train[self._selected_indices]
         )
+
+        # Compute and return the accuracy on the test set
         return knn.score(self.X_test, self.y_test)
 
-    def _check_accuracy_drop(self, selected_indices, epsilon):
-        self._selected_indices = selected_indices
-        return self._get_accuracy() >= self.base_accuracy - epsilon
-
     def find_maximum_p(self, epsilon: float = 0.0, max_limit: int = None) -> int:
+        """
+        Finds the maximum p where accuracy is maintained within the threshold.
+
+        Args:
+            epsilon (float): Tolerance for accuracy drop.
+            max_limit (int): Maximum number of samples to remove. Default is None.
+
+        Returns:
+            int: Maximum number of samples that can be removed without dropping accuracy
+                 below the threshold.
+        """
         if max_limit is None:
             max_limit = self.n_samples
 
+        def check_accuracy(selected_indices):
+            self._selected_indices = selected_indices
+            return self._get_accuracy() >= self.base_accuracy - epsilon
+
+        # Iterate through different sizes of removed sets
         for p in range(1, max_limit + 1):
+
             combination_generator = CombinationGenerator().configure(
                 self.n_samples, self.n_samples - p
             )
 
-            with mp.Pool(processes=self.n_jobs) as pool:
+            # Do the blow in parallel
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=self.n_jobs
+            ) as executor:
+                futures = {
+                    executor.submit(check_accuracy, selected_indices): selected_indices
+                    for selected_indices in itertools.islice(
+                        combination_generator, self.n_jobs
+                    )
+                }
                 with tqdm(
                     total=len(combination_generator),
-                    desc=f"Finding Maximum p, Evaluating p={p}",
+                    desc=f"Finding maximum p, Evaluating p={p}",
                     leave=False,
                     disable=not self.show_progress,
                 ) as pbar:
-                    for selected_indices in combination_generator:
-                        async_result = pool.apply_async(
-                            self._check_accuracy_drop, (selected_indices, epsilon)
+                    while futures:
+                        done, _ = concurrent.futures.wait(
+                            futures, return_when=concurrent.futures.FIRST_COMPLETED
                         )
-                        dropped = async_result.get()
-                        pbar.update(1)
-                        # The drop in accuracy is greater than epsilon
-                        if dropped:
-                            pool.terminate()
-                            return p - 1
 
-        return max_limit
+                        for future in done:
+                            # value = futures[future]
+                            if not future.result():
+                                for f in futures:
+                                    f.cancel()
+                                pbar.close()
+                                return p - 1
+                            else:
+                                # Remove the processed future and submit a new one
+                                del futures[future]
+                                try:
+                                    selected_indices = next(combination_generator)
+                                except StopIteration:
+                                    selected_indices = None
+                                if selected_indices is not None:
+                                    futures[
+                                        executor.submit(
+                                            check_accuracy, selected_indices
+                                        )
+                                    ] = selected_indices
+                                pbar.update(1)
 
-    def _compute_decrease(self, selected_indices):
-        self._selected_indices = selected_indices
-        accuracy = self._get_accuracy()
-        return self.base_accuracy - accuracy
+            # Display progress bar with tqdm, with leave=False to remove it after completion
+            # for self._selected_indices in tqdm(
+            #     self.combination_generator.configure(
+            #         self.n_samples, self.n_samples - p
+            #     ),
+            #     desc=f"Finding maximum p, Evaluating p={p}",  # Description of the current progress
+            #     leave=False,
+            #     disable=not self.show_progress,  # Disable tqdm if show_progress is False
+            # ):
 
-    def _worker(self, batch, results_dict, process_id) -> list:
-        batch_max_decrease = -1
-        batch_sum_decrease = 0.0
-        batch_count = 0
+            #     # Calculate the accuracy with the current set of selected indices
+            #     accuracy = self._get_accuracy()
 
-        for selected_indices in batch:
-            decrease = self._compute_decrease(selected_indices)
-            batch_sum_decrease += decrease
-            batch_count += 1
-            if decrease > batch_max_decrease:
-                batch_max_decrease = decrease
-        list(set(np.arange(self.n_samples)) - set(selected_indices))
-        with self.lock:
-            results_dict[process_id]["sum_decrease"] += batch_sum_decrease
-            results_dict[process_id]["count"] += batch_count
-            if batch_max_decrease > results_dict[process_id]["max_decrease"]:
-                results_dict[process_id]["max_decrease"] = batch_max_decrease
+            #     # Check if accuracy drops below the base accuracy minus epsilon
+            #     if accuracy < self.base_accuracy - epsilon:
+            #         # Return the previous p value as the maximum where accuracy is maintained
+            #         return p - 1
 
-        return batch
+        # If no significant drop in accuracy is found, return n_samples
+        return self.n_samples
 
-    def find_epsilon(self, p: int, batch_size=1000) -> tuple[float, float]:
+    def find_epsilon(self, p: int) -> tuple[float, float]:
+        """
+        Finds the appropriate epsilon value for a given p value that maintains accuracy.
+
+        In other words, this method finds the maximum drop in accuracy.
+
+        Args:
+            p (int): Number of indices in the removed set.
+        """
+        # Initialize the maximum decrease in accuracy
+        max_decrease = -1
+        avg_decrease = 0
+
+        def compute_decrease(selected_indices):
+            self._selected_indices = selected_indices
+            accuracy = self._get_accuracy()
+            return self.base_accuracy - accuracy
+
         combination_generator = CombinationGenerator().configure(
             self.n_samples, self.n_samples - p
         )
-        total_combinations = len(combination_generator)
 
-        manager = mp.Manager()
-        results_dict = manager.dict(
-            {
-                i: {"max_decrease": -1, "sum_decrease": 0.0, "count": 0}
-                for i in range(self.n_jobs)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.n_jobs) as executor:
+            futures = {
+                executor.submit(compute_decrease, selected_indices): selected_indices
+                for selected_indices in itertools.islice(
+                    combination_generator, self.n_jobs
+                )
             }
-        )
-        self.lock = manager.Lock()
 
-        def batched(iterable: iter, n: int) -> iter:
-            """Batch data into tuples of length n. The last batch may be shorter."""
-            it = iter(iterable)
-            while True:
-                batch = list(itertools.islice(it, n))
-                if not batch:
-                    break
-                removed_indices = list(set(np.arange(self.n_samples)) - set(batch[0]))
-                yield batch
-
-        with mp.Pool(processes=self.n_jobs) as pool:
             with tqdm(
-                total=total_combinations,
-                desc=f"Finding epsilons, Evaluating p={p}",
+                total=len(combination_generator),
+                desc=f"Finding epsilon, Evaluating p={p}",
                 leave=False,
                 disable=not self.show_progress,
             ) as pbar:
-                for idx, batch in enumerate(batched(combination_generator, batch_size)):
-                    process_id = idx % self.n_jobs
-                    pool.apply_async(
-                        self._worker,
-                        (batch, results_dict, process_id),
-                        callback=lambda ret_batch: pbar.update(len(ret_batch)),
+                while futures:
+                    done, _ = concurrent.futures.wait(
+                        futures, return_when=concurrent.futures.FIRST_COMPLETED
                     )
-                    logger.debug(
-                        f"Batch {idx} sent to process {process_id}",
-                        extra={"use_tqdm": True},
-                    )
-                pool.close()
-                pool.join()
 
-        # Aggregate results
-        total_sum_decrease = 0
-        total_count = 0
-        overall_max_decrease = -1
-        for res in results_dict.values():
-            total_sum_decrease += res["sum_decrease"]
-            total_count += res["count"]
-            if res["max_decrease"] > overall_max_decrease:
-                overall_max_decrease = res["max_decrease"]
+                    for future in done:
+                        decrease = future.result()
+                        avg_decrease += decrease
 
-        avg_decrease = total_sum_decrease / total_count if total_count > 0 else 0
-        max_decrease = overall_max_decrease
+                        if decrease > max_decrease:
+                            max_decrease = decrease
 
+                        # Remove the processed future and submit a new one
+                        del futures[future]
+                        try:
+                            selected_indices = next(combination_generator)
+                        except StopIteration:
+                            selected_indices = None
+                        if selected_indices is not None:
+                            futures[
+                                executor.submit(compute_decrease, selected_indices)
+                            ] = selected_indices
+                        pbar.update(1)
+
+        # # Iterate through all possible combinations of removed indices
+        # for self._selected_indices in tqdm(
+        #     self.combination_generator.configure(self.n_samples, self.n_samples - p),
+        #     desc=f"Find epsilon, Evaluating p={p}",
+        #     leave=False,
+        #     disable=not self.show_progress,  # Disable tqdm if show_progress is False
+        # ):
+
+        #     # Calculate the accuracy with the current set of selected indices
+        #     accuracy = self._get_accuracy()
+
+        #     decreased = self.base_accuracy - accuracy
+        #     avg_decrease += decreased
+
+        #     # Update the maximum decrease in accuracy
+        #     if decreased > max_decrease:
+        #         max_decrease = decreased
+
+        # avg_decrease /= len(self.combination_generator)
+
+        # Return the maximum and average decrease in accuracy
         return max_decrease, avg_decrease
 
 

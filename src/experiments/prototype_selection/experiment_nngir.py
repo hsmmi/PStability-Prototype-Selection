@@ -6,7 +6,7 @@ from src.algorithms.prototype_selection.drop3 import DROP3
 from src.algorithms.prototype_selection.nngir import NNGIR
 from src.algorithms.prototype_selection.hmnei import HMNEI
 
-DATASET_NAME = "banana"
+DATASET_NAME = "digits"
 
 # Get file name
 from src.utils.path import ProjectPath
@@ -18,7 +18,7 @@ X, y = load_data(DATASET_NAME)
 
 # Define the algorithms
 algorithms = {
-    # "DROP3": {"algorithm": DROP3().fit_transform},
+    "DROP3": {"algorithm": DROP3().fit_transform},
     "NNGIR": {"algorithm": NNGIR().fit_transform},
     # "HMNEI": {"algorithm": HMNEI().fit_transform},
 }

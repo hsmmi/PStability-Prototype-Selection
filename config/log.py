@@ -14,12 +14,7 @@ def setup_logging():
 
 def get_logger(name: str) -> logging.Logger:
     """Get a logger with the given name which is the module name."""
-    if name in logging.Logger.manager.loggerDict:
-        logger = logging.getLogger(name)
-    else:
-        logger = logging.getLogger(name)
-        logger.info(f"LOGGER CREATED: {name}")
-    return logger
+    return logging.getLogger(name)
 
 
 setup_logging()

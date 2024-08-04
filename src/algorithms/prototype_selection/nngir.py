@@ -94,7 +94,9 @@ class NNGIR(BaseAlgorithm):
             idx2 for idx2 in nearest_neighbours if self.y_[idx] != self.y_[idx2]
         ]
         distances_to_neighbours = pairwise_distances(
-            self.X_[idx].reshape(1, -1), self.X_[list(enemy_neighbours)]
+            self.X_[idx].reshape(1, -1),
+            self.X_[list(enemy_neighbours)],
+            metric=self.metric,
         )
         return np.min(distances_to_neighbours)
 

@@ -14,8 +14,6 @@ from src.algorithms.prototype_selection.hmnei import HMNEI
 from src.algorithms.prototype_selection.nngir import NNGIR
 import tqdm
 
-DATASET_NAME = "digits"
-
 # Get file name
 from src.utils.path import ProjectPath
 

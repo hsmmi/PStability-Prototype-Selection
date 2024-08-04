@@ -1,28 +1,26 @@
 import itertools
 import math
 from typing import Iterator, Tuple
-from tqdm import tqdm
 import numpy as np
 
 
 class CombinationGenerator:
     """
-    A class to generate and iterate over selected indices and their remaining indices.
+    A class to generate and provide iterators over combinations of selected indices.
     """
 
     def __init__(self):
-        self.n: int = 0
-        self.p: int = 0
-        self.total_combinations: int = 0
-        self._comb_iterator: Iterator[Tuple[int, ...]] = iter([])
+        self._n: int = 0
+        self._p: int = 0
+        self._total_combinations: int = 0
 
-    def set_params(self, n: int, p: int) -> "CombinationGenerator":
+    def configure(self, n: int, p: int) -> "CombinationGenerator":
         """
-        Sets the parameters for generating selected indices and remaining indices.
+        Configures the parameters for generating combinations of selected indices.
 
         Args:
             n (int): The total number of indices.
-            p (int): The number of indices in the selected set.
+            p (int): The number of indices in each combination.
 
         Returns:
             CombinationGenerator: Returns the instance itself.
@@ -34,30 +32,53 @@ class CombinationGenerator:
         if p > n:
             raise ValueError("p cannot be greater than the number of indices (n).")
 
-        self.n = n
-        self.p = p
-        self.total_combinations = math.comb(n, p)
-        # TODO: Add shuffle parameter to shuffle the combinations
-        self._comb_iterator = itertools.combinations(range(n), p)
+        self._n = n
+        self._p = p
+        self._total_combinations = math.comb(n, p)
         return self
 
     def __iter__(self) -> Iterator[Tuple[np.ndarray]]:
         """
-        Makes the CombinationGenerator an iterable object.
+        Returns an iterator over the combinations of selected indices.
 
         Returns:
-            Iterator[Tuple[np.ndarray]]: An iterator over selected indices.
+            Iterator[Tuple[np.ndarray]]: An iterator over the combinations of selected indices.
         """
-        # Re-initialize the combination iterator for iteration
-        self._comb_iterator = itertools.combinations(range(self.n), self.p)
+        return _CombinationIterator(self._n, self._p)
+
+    def __len__(self) -> int:
+        """
+        Returns the total number of combinations.
+
+        Returns:
+            int: Total number of combinations.
+        """
+        return self._total_combinations
+
+
+class _CombinationIterator:
+    """
+    An iterator to iterate over combinations of selected indices.
+    """
+
+    def __init__(self, n: int, p: int):
+        self._comb_iterator = iter(itertools.combinations(range(n), p))
+
+    def __iter__(self) -> "_CombinationIterator":
+        """
+        Returns itself as an iterator.
+
+        Returns:
+            _CombinationIterator: Returns itself as an iterator.
+        """
         return self
 
     def __next__(self) -> Tuple[np.ndarray]:
         """
-        Returns the next selected indices in the iteration.
+        Returns the next combination of selected indices.
 
         Returns:
-            Tuple[np.ndarray]: The next selected indices as a numpy array.
+            Tuple[np.ndarray]: The next combination of selected indices as a numpy array.
 
         Raises:
             StopIteration: If no more combinations are available.
@@ -67,12 +88,3 @@ class CombinationGenerator:
             return np.array(selected)  # Return the selected indices as a numpy array
         except StopIteration:
             raise StopIteration  # Raise StopIteration when there are no more combinations
-
-    def __len__(self) -> int:
-        """
-        Returns the total number of combinations.
-
-        Returns:
-            int: Total number of combinations.
-        """
-        return self.total_combinations

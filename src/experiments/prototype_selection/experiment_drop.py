@@ -4,7 +4,7 @@ from src.utils.evaluation_metrics import compare_prototype_selection
 
 from src.algorithms.prototype_selection.drop3 import DROP3 as DROP3
 
-DATASET_NAME = "wine"
+DATASET_NAME = "digits"
 
 # Get file name
 from src.utils.path import ProjectPath
