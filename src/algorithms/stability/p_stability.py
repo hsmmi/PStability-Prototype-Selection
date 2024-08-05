@@ -1,5 +1,5 @@
 import itertools
-from typing import Iterator, Optional
+from typing import Iterator, Optional, Tuple
 import numpy as np
 from sklearn.model_selection import StratifiedKFold
 from sklearn.neighbors import KNeighborsClassifier
@@ -16,14 +16,14 @@ logger = get_logger("mylogger")
 class PStability:
     def __init__(
         self,
-        X_train,
-        y_train,
-        X_test,
-        y_test,
-        n_neighbors=5,
-        show_progress=True,
-        n_jobs=None,
-        batch_size=None,
+        X_train: np.ndarray,
+        y_train: np.ndarray,
+        X_test: np.ndarray,
+        y_test: np.ndarray,
+        n_neighbors: int = 5,
+        show_progress: bool = True,
+        n_jobs: Optional[int] = None,
+        batch_size: Optional[int] = None,
     ):
         """
         Initializes the PStability object.
@@ -38,44 +38,32 @@ class PStability:
             n_jobs (int): Number of parallel jobs to run. Default is None which uses all CPU cores.
             batch_size (int): Size of each batch for parallel processing. Default is None which sets it to 1000 or number of samples.
         """
-        # Initialize training and test data
         self.X_train = X_train
         self.y_train = y_train
         self.X_test = X_test
         self.y_test = y_test
 
-        # Set KNeighborsClassifier parameters
         self.n_neighbors = n_neighbors
         self.n_samples = X_train.shape[0]
 
-        # Determine unique classes in the training data
         self.classes = np.unique(y_train)
         self.n_classes = len(self.classes)
 
-        # Initialize KNN classifier
         self.model = KNeighborsClassifier
 
-        # Initialize the combination generator for removing samples
         self.combination_generator = CombinationGenerator()
 
-        # Keep track of currently selected indices
         self._selected_indices: np.ndarray = np.arange(self.n_samples)
 
-        # Calculate and store the base accuracy
         self.base_accuracy = self._get_accuracy()
 
-        # Set the show_progress flag
         self.show_progress = show_progress
-
-        # Set the number of parallel jobs
         self.n_jobs = n_jobs if n_jobs is not None else mp.cpu_count()
-
-        # Set the batch size for parallel processing
         self.batch_size = (
             batch_size if batch_size is not None else min(1000, self.n_samples)
         )
 
-    def _get_accuracy(self):
+    def _get_accuracy(self) -> float:
         """
         Train the KNN model on the selected indices and return the accuracy on the test set.
 
@@ -88,7 +76,9 @@ class PStability:
         )
         return knn.score(self.X_test, self.y_test)
 
-    def _check_accuracy_drop(self, selected_indices, epsilon):
+    def _check_accuracy_drop(
+        self, selected_indices: np.ndarray, epsilon: float
+    ) -> bool:
         """
         Check if the accuracy drops below a specified epsilon for the given selected indices.
 
@@ -102,7 +92,7 @@ class PStability:
         self._selected_indices = selected_indices
         return self._get_accuracy() < self.base_accuracy - epsilon
 
-    def _worker_find_maximum_p(self, batch, epsilon) -> int:
+    def _worker_find_maximum_p(self, batch: list[np.ndarray], epsilon: float) -> int:
         """
         Worker function to find the maximum p value.
         For each batch, check if the accuracy drops below epsilon.
@@ -111,15 +101,16 @@ class PStability:
         """
         try:
             for selected_indices in batch:
-                dropped = self._check_accuracy_drop(selected_indices, epsilon)
-                if dropped:
+                if self._check_accuracy_drop(selected_indices, epsilon):
                     return -1  # Indicate that the accuracy drop was detected
             return len(batch)
         except Exception as e:
             logger.error(f"Error in worker: {e}")
             return -1
 
-    def find_maximum_p(self, epsilon: float = 0.0, max_limit: int = None) -> int:
+    def find_maximum_p(
+        self, epsilon: float = 0.0, max_limit: Optional[int] = None
+    ) -> int:
         """
         Find the maximum p value for which the accuracy does not drop below epsilon.
 
@@ -135,7 +126,7 @@ class PStability:
 
         terminate_flag = mp.Value("i", 0)
 
-        def update_callback(ret, pbar, terminate_flag):
+        def update_callback(ret: int, pbar: tqdm, terminate_flag) -> None:
             if ret == -1:
                 with terminate_flag.get_lock():
                     terminate_flag.value = 1
@@ -148,7 +139,13 @@ class PStability:
 
         return max_limit
 
-    def _evaluate_p_value(self, p, epsilon, terminate_flag, update_callback) -> bool:
+    def _evaluate_p_value(
+        self,
+        p: int,
+        epsilon: float,
+        terminate_flag,
+        update_callback: callable,
+    ) -> bool:
         """
         Evaluate a specific p value by generating combinations and checking accuracy drop.
 
@@ -194,7 +191,7 @@ class PStability:
                 pool.join()
         return False
 
-    def _compute_decrease(self, selected_indices):
+    def _compute_decrease(self, selected_indices: np.ndarray) -> float:
         """
         Compute the decrease in accuracy for the given selected indices.
 
@@ -208,7 +205,13 @@ class PStability:
         accuracy = self._get_accuracy()
         return self.base_accuracy - accuracy
 
-    def _worker_find_epsilon(self, batch, results_dict, process_id, lock) -> list:
+    def _worker_find_epsilon(
+        self,
+        batch: list[np.ndarray],
+        results_dict: dict,
+        process_id: int,
+        lock,
+    ) -> list[np.ndarray]:
         """
         Worker function to find the epsilon value for a batch of combinations.
 
@@ -260,7 +263,7 @@ class PStability:
                 break
             yield batch
 
-    def find_epsilon(self, p: int) -> tuple[float, float]:
+    def find_epsilon(self, p: int) -> Tuple[float, float]:
         """
         Find the maximum and average epsilon values for a given p value.
 
@@ -307,7 +310,6 @@ class PStability:
                 pool.close()
                 pool.join()
 
-        # Aggregate results
         total_sum_decrease = 0
         total_count = 0
         overall_max_decrease = -1
@@ -336,8 +338,8 @@ class PStabilityResults:
 
         Args:
             max_p (int, optional): Maximum p value found.
-            max_epsilon (list[float], optional): List of maximum epsilon values for each p.
-            avg_epsilon (list[float], optional): List of average epsilon values for each p.
+            max_epsilon (list[float], optional): list of maximum epsilon values for each p.
+            avg_epsilon (list[float], optional): list of average epsilon values for each p.
             time (float, optional): Total time taken.
         """
         self.max_p = max_p
@@ -345,7 +347,7 @@ class PStabilityResults:
         self.avg_epsilon = avg_epsilon
         self.time = time
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"PStabilityResults(max_p={self.max_p}, max_epsilon={self.max_epsilon}, avg_epsilon={self.avg_epsilon}, time={self.time})"
 
     def get_max_epsilon_percentage(self) -> Optional[list[str]]:
@@ -353,7 +355,7 @@ class PStabilityResults:
         Get the maximum epsilon values as percentages.
 
         Returns:
-            list[str]: List of maximum epsilon values as percentages.
+            list[str]: list of maximum epsilon values as percentages.
         """
         if self.max_epsilon:
             return [f"{epsilon:.2%}" for epsilon in self.max_epsilon]
@@ -364,7 +366,7 @@ class PStabilityResults:
         Get the average epsilon values as percentages.
 
         Returns:
-            list[str]: List of average epsilon values as percentages.
+            list[str]: list of average epsilon values as percentages.
         """
         if self.avg_epsilon:
             return [f"{epsilon:.2%}" for epsilon in self.avg_epsilon]
@@ -392,7 +394,7 @@ def run_p_stability(
     n_folds (int): Number of folds for cross-validation. Default is 5.
     n_neighbors (int): Number of neighbors for k-NN. Default is 5.
     find_max_p (bool): Whether to find the maximum p value. Default is False.
-    find_epsilon (list[int], optional): List of p values to find the epsilon value. Default is None.
+    find_epsilon (list[int], optional): list of p values to find the epsilon value. Default is None.
     show_progress (bool): Whether to use tqdm for progress tracking. Default is False.
     n_jobs (int): Number of parallel jobs to run. Default is None which uses all CPU cores.
     batch_size (int): Size of each batch for parallel processing. Default is None which sets it to 1000 or number of samples.
