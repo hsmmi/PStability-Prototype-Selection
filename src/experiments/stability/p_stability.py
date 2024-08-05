@@ -21,7 +21,6 @@ if __name__ == "__main__":
         n_folds=5,
         find_max_p=True,
         show_progress=True,
-        n_jobs=8,
     )
 
     logger.info(f"Max p: {results.max_p} with time elapsed: {results.time}")
