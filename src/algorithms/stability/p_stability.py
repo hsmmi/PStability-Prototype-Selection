@@ -44,7 +44,11 @@ class PStability(KNN):
         Returns:
         int: Number of friends until the nearest enemy.
         """
-        return max(0, self.nearest_enemy_index(idx) - self.nearest_friend_index(idx))
+        return max(
+            0,
+            (self.nearest_enemy_index(idx) - self.nearest_enemies_pointer[idx])
+            - (self.nearest_friend_index(idx) - self.nearest_friends_pointer[idx]),
+        )
 
     def _sort_by_nearest_enemy(self) -> np.ndarray:
         """
@@ -108,12 +112,23 @@ class PStability(KNN):
         neighbour_idx = self.nearest_neighbours[idx][
             nearest_friends_pointer:nearest_neighbours_enemy_pointer
         ]
-        changed_list = {}
-        for neighbour in neighbour_idx:
-            if self.mask[neighbour]:
-                changed = self._remove_point_update_neighbours(neighbour)
-                changed_list[neighbour] = changed
-        return changed_list
+        changes = {}
+        changes["neighbours"] = neighbour_idx
+        self.mask[neighbour_idx] = False
+        changes["update_nearest_friends"] = {}
+        changes["update_nearest_enemies"] = {}
+        for idx2 in range(self.n_samples):
+            while self.nearest_friend(idx2) in neighbour_idx:
+                changes["update_nearest_friends"][idx2] = (
+                    changes["update_nearest_friends"].get(idx2, 0) + 1
+                )
+                self.nearest_friends_pointer[idx2] += 1
+            while self.nearest_enemy(idx2) in neighbour_idx:
+                changes["update_nearest_enemies"][idx2] = (
+                    changes["update_nearest_enemies"].get(idx2, 0) + 1
+                )
+                self.nearest_enemies_pointer[idx2] += 1
+        return changes
 
     def _put_back_nearest_neighbours(self, changed_list: dict[int, list[int]]) -> None:
         """
@@ -122,8 +137,12 @@ class PStability(KNN):
         Parameters:
         changed_list (list[int]): List of indices that had their nearest pointers updated.
         """
-        for neighbour, changed in changed_list.items():
-            self._put_back_point(neighbour, changed)
+        neighbours_idx = changed_list["neighbours"]
+        self.mask[neighbours_idx] = True
+        for idx2, count in changed_list["update_nearest_friends"].items():
+            self.nearest_friends_pointer[idx2] -= count
+        for idx2, count in changed_list["update_nearest_enemies"].items():
+            self.nearest_enemies_pointer[idx2] -= count
 
     def _find_p(self, miss: int, start_index: int = 0) -> int:
         """
@@ -144,14 +163,14 @@ class PStability(KNN):
         max_p = self.n_samples + 1
         for idx in range(start_index, self.n_samples):
             if self.mask[idx] and self.classify_correct[idx]:
-                changed_list = self._remove_nearest_neighbours(idx)
+                changes = self._remove_nearest_neighbours(idx)
                 missed = self._calculate_stability()
                 if missed <= miss:
                     res_max_p = self._find_p(miss - missed, idx + 1)
                     if res_max_p != -1:
-                        max_p = min(max_p, res_max_p + len(changed_list))
+                        max_p = min(max_p, res_max_p + len(changes["neighbours"]))
 
-                self._put_back_nearest_neighbours(changed_list)
+                self._put_back_nearest_neighbours(changes)
         if max_p == self.n_samples + 1:
             return 0
         return max_p

@@ -57,7 +57,10 @@ class KNN:
         Returns:
         int: Index of the nearest friend.
         """
-        return self.nearest_neighbours[idx][self.nearest_friend_index(idx)]
+        pointer = self.nearest_friend_index(idx)
+        if pointer == self.n_samples + 1:
+            return -1
+        return self.nearest_neighbours[idx][pointer]
 
     def nearest_enemy_index(self, idx: int) -> int:
         """
