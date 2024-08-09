@@ -1,6 +1,10 @@
+from typing import Tuple
 import numpy as np
 from tqdm import tqdm
 from src.algorithms.stability.my_knn import KNN
+from config.log import get_logger
+
+logger = get_logger("mylogger")
 
 
 class PStability(KNN):
@@ -19,7 +23,7 @@ class PStability(KNN):
 
     def _classify(self, idx: int) -> int:
         """
-        Classify an instance.
+        Classify an instance with 1-NN.
 
         Parameters:
         idx (int): Index of the instance.
@@ -27,8 +31,34 @@ class PStability(KNN):
         Returns:
         int: The predicted class.
         """
-        nearest_neighbor = self.nearest_neighbour(idx)
-        return self.y[nearest_neighbor]
+        nearest_neighbor_idx, _ = self.nearest_neighbour(idx)
+        return self.y[nearest_neighbor_idx]
+
+    def _number_of_friends_until_nearest_enemy(self, idx: int) -> int:
+        """
+        Calculate the number of friends an instance has until the nearest enemy.
+
+        Parameters:
+        idx (int): Index of the instance.
+
+        Returns:
+        int: Number of friends until the nearest enemy.
+        """
+        return max(0, self.nearest_enemy_index(idx) - self.nearest_friend_index(idx))
+
+    def _sort_by_nearest_enemy(self) -> np.ndarray:
+        """
+        Sort instances by the number of friends they have until the nearest enemy.
+
+        Returns:
+        np.ndarray: Indices of the instances sorted by the number of friends they have.
+        """
+        return np.argsort(
+            [
+                self._number_of_friends_until_nearest_enemy(idx)
+                for idx in range(self.n_samples)
+            ]
+        )
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> "PStability":
         """
@@ -45,13 +75,14 @@ class PStability(KNN):
         self.classify_correct = np.array(
             [self._classify(i) == y[i] for i in range(self.n_samples)]
         )
-        self.nearest_enemy_sorted_index = np.argsort(self.nearest_enemy_pointer)
+        # Sort instances by the number of friends they have until the nearest enemy in descending order
+        self.nearest_enemy_sorted_index = self._sort_by_nearest_enemy()
 
         return self
 
-    def run(self, p: list[int]) -> list[int]:
+    def run_misses(self, p: list[int]) -> list[int]:
         """
-        Run the stability check for the given values of p.
+        Run the stability check for the given values of p using all combinations.
 
         Parameters:
         p (list[int]): list of values of p to check as the number of points to remove.
@@ -61,7 +92,84 @@ class PStability(KNN):
         """
         return self._run(p, self._check_combinations)
 
-    def relaxed_run(self, p: list[int]) -> list[int]:
+    def _remove_nearest_neighbours(self, idx: int) -> dict[int, list[int]]:
+        """
+        Remove the nearest neighbours of a point until nearest enemy is reached.
+
+        Parameters:
+        idx (int): Index of the point.
+
+        Returns:
+        dict[int, list[int]]: Dictionary of indices that had their nearest pointers updated containing
+        the indices of the nearest neighbours and the indices of the nearest enemies.
+        """
+        nearest_friends_pointer = self.nearest_friend_index(idx)
+        nearest_neighbours_enemy_pointer = self.nearest_enemy_index(idx)
+        neighbour_idx = self.nearest_neighbours[idx][
+            nearest_friends_pointer:nearest_neighbours_enemy_pointer
+        ]
+        changed_list = {}
+        for neighbour in neighbour_idx:
+            if self.mask[neighbour]:
+                changed = self._remove_point_update_neighbours(neighbour)
+                changed_list[neighbour] = changed
+        return changed_list
+
+    def _put_back_nearest_neighbours(self, changed_list: dict[int, list[int]]) -> None:
+        """
+        Put back the nearest neighbours of a point that were removed.
+
+        Parameters:
+        changed_list (list[int]): List of indices that had their nearest pointers updated.
+        """
+        for neighbour, changed in changed_list.items():
+            self._put_back_point(neighbour, changed)
+
+    def _find_p(self, miss: int, start_index: int = 0) -> int:
+        """
+        Find the minimum p value that will result in at most miss misclassifications.
+        In each iteration, the algorithm assume that a point is the point that gonna be misclassified
+        and check the for minimum p that not gonna misclassify more than miss points.
+
+        Parameters:
+        miss (int): The (maximum) number of misclassifications.
+
+        Returns:
+        int: Maximum number of p that not gonna misclassify more than miss points.
+        """
+        if miss == 0:
+            for idx in self.nearest_enemy_sorted_index:
+                if idx >= start_index and self.mask[idx] and self.classify_correct[idx]:
+                    return self._number_of_friends_until_nearest_enemy(idx) - 1
+        max_p = self.n_samples + 1
+        for idx in range(start_index, self.n_samples):
+            if self.mask[idx] and self.classify_correct[idx]:
+                changed_list = self._remove_nearest_neighbours(idx)
+                missed = self._calculate_stability()
+                if missed <= miss:
+                    res_max_p = self._find_p(miss - missed, idx + 1)
+                    if res_max_p != -1:
+                        max_p = min(max_p, res_max_p + len(changed_list))
+
+                self._put_back_nearest_neighbours(changed_list)
+        if max_p == self.n_samples + 1:
+            return 0
+        return max_p
+
+    def run_max_p(self, misses: list[int]) -> list[int]:
+        """
+        Find the maximum p value that will result no more than the given number of misclassifications.
+
+
+        Parameters:
+        p (list[int]): list of values of p to check as the number of points to remove.
+
+        Returns:
+        list[int]: list of maximum misclassifications found for each p value.
+        """
+        return self._run(misses, self._find_p)
+
+    def run_relaxed_misses(self, p: list[int]) -> list[int]:
         """
         Run the relaxed stability check for the given values of p.
 
@@ -84,12 +192,15 @@ class PStability(KNN):
         Returns:
         list[int]: list of maximum misclassifications found for each p value.
         """
+        # Check that model is fitted
+        if self.n_samples is None:
+            raise ValueError("Model is not fitted. Run fit method first.")
         self.mask = np.ones(self.n_samples, dtype=bool)
         ret = []
         for p_value in p:
-            logger.info(f"Checking stability for p={p_value}")
+            logger.debug(f"Checking {check_fn.__name__} for p={p_value}")
             max_misses = check_fn(p_value)
-            logger.info(f"Maximum misclassifications: {max_misses}")
+            logger.debug(f"Result: {max_misses}")
             ret.append(max_misses)
 
         return ret
@@ -111,16 +222,18 @@ class PStability(KNN):
             idx = self.nearest_enemy_sorted_index[pointer]
             if self.classify_correct[idx]:
                 self.mask[idx] = False
-                if removed + self.nearest_enemy_pointer[idx] > p:
+                if removed + self._number_of_friends_until_nearest_enemy(idx) > p:
                     break
-                removed += self.nearest_enemy_pointer[idx]
+                removed += self._number_of_friends_until_nearest_enemy(idx)
                 misses += 1
 
             pointer += 1
 
         return misses
 
-    def _remove_point(self, idx: int) -> np.ndarray:
+    def _remove_point_update_neighbours(
+        self, idx: int
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Remove a point from the mask and update the nearest pointer for the neighbours.
 
@@ -128,12 +241,22 @@ class PStability(KNN):
         idx (int): Index of the point to remove.
 
         Returns:
-        np.ndarray: Array of indices of the samples which had their nearest pointer updated.
+        Tuple[np.ndarray, np.ndarray]: Arrays of indices that had their nearest pointers updated.
+        The first array contains the indices of the nearest neighbours and the second array
+        contains the indices of the nearest enemies.
         """
         self.mask[idx] = False
-        changed = np.nonzero(self.nearest_neighbours[:, self.nearest_pointer] == idx)[0]
-        self.nearest_pointer[changed] += 1
-        return changed
+        changed_nearest_neighbor = np.nonzero(
+            [self.nearest_friend(idx2) == idx for idx2 in range(self.n_samples)]
+        )[0]
+        self.nearest_friends_pointer[changed_nearest_neighbor] += 1
+
+        changed_nearest_enemy = np.nonzero(
+            [self.nearest_enemy(idx2) == idx for idx2 in range(self.n_samples)]
+        )[0]
+        self.nearest_enemies_pointer[changed_nearest_enemy] += 1
+
+        return [changed_nearest_neighbor, changed_nearest_enemy]
 
     def _put_back_point(self, idx: int, changed: np.ndarray) -> None:
         """
@@ -142,10 +265,12 @@ class PStability(KNN):
 
         Parameters:
         idx (int): Index of the point to put back.
-        changed (np.ndarray): Array of indices that had their nearest pointer updated.
+        changed (np.ndarray): Array of indices that had their nearest pointers updated.
         """
         self.mask[idx] = True
-        self.nearest_pointer[changed] -= 1
+        changed_nearest_neighbor, changed_nearest_enemy = changed
+        self.nearest_friends_pointer[changed_nearest_neighbor] -= 1
+        self.nearest_enemies_pointer[changed_nearest_enemy] -= 1
 
     def _calculate_stability(self) -> int:
         """
@@ -189,7 +314,7 @@ class PStability(KNN):
             disable=p < 3,
         ):
             if self.mask[idx]:
-                changed = self._remove_point(idx)
+                changed = self._remove_point_update_neighbours(idx)
                 misses = self._check_combinations(p - 1, idx + 1)
                 max_misses = max(max_misses, misses)
                 self._put_back_point(idx, changed)

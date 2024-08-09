@@ -7,7 +7,7 @@ logger = get_logger("mylogger")
 
 
 @contextmanager
-def measure_time(label="Execution time", level="INFO") -> None:
+def measure_time(label="Execution time", level="INFO"):
     """
     Measure the execution time of a block of code.
 
