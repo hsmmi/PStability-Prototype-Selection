@@ -84,6 +84,29 @@ class PStability(KNN):
         """
         return self._run(p, self._check_combinations)
 
+    def find_instance_with_min_friends(self, start_index: int = 0) -> int:
+        """
+        Find the instance with the minimum number of friends until the nearest enemy.
+        The instance must be classified correctly.
+
+        Parameters
+        ----------
+        start_index : int, optional
+            The starting index for the search, by default 0.
+
+        Returns
+        -------
+        int
+            The index of the instance with the minimum number of friends until the nearest enemy.
+        """
+        min_friends, min_idx = self.n_samples + 1, -1
+        for idx in range(start_index, self.n_samples):
+            if self.mask[idx] and self.classify_correct[idx]:
+                friends = self._number_of_friends_until_nearest_enemy(idx)
+                if friends < min_friends:
+                    min_friends, min_idx = friends, idx
+        return min_idx
+
     def _find_p(self, miss: int, start_index: int = 0) -> int:
         """
         Find the minimum p value that results in at most `miss` misclassifications.
@@ -103,9 +126,10 @@ class PStability(KNN):
             The minimum p value that results in at most `miss` misclassifications.
         """
         if miss == 0:
-            for idx in self.nearest_enemy_sorted_index:
-                if idx >= start_index and self.mask[idx] and self.classify_correct[idx]:
-                    return self._number_of_friends_until_nearest_enemy(idx) - 1
+            idx_min_friends = self.find_instance_with_min_friends(start_index)
+            if idx_min_friends == -1:
+                return 0
+            return self._number_of_friends_until_nearest_enemy(idx_min_friends) - 1
         max_p = self.n_samples + 1
         for idx in range(start_index, self.n_samples):
             if self.mask[idx] and self.classify_correct[idx]:
