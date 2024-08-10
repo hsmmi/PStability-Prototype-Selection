@@ -19,6 +19,8 @@ class KNN:
         ----------
         metric : str
             Distance metric to use (default is "euclidean").
+        update_nearest_enemy : bool
+            Whether to update the nearest enemies (default is False).
         """
         self.k: int = 1
         self.X: np.ndarray = None
