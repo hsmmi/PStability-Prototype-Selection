@@ -1,4 +1,3 @@
-from typing import Tuple
 import numpy as np
 from tqdm import tqdm
 from src.algorithms.stability.my_knn import KNN
@@ -12,8 +11,10 @@ class PStability(KNN):
         """
         Initialize PStability with the given metric.
 
-        Parameters:
-        metric (str): Distance metric to use.
+        Parameters
+        ----------
+        metric : str
+            Distance metric to use.
         """
         super().__init__(metric)
         self.mask: np.ndarray = None
@@ -21,59 +22,42 @@ class PStability(KNN):
         self.p: list[int] = None
         self.max_misses: list[int] = None
 
-    def _classify(self, idx: int) -> int:
+    def _calculate_stability(self) -> int:
         """
-        Classify an instance with 1-NN.
+        Check how many samples that classified correctly at first will misclassify
+        after removing p points using the mask.
 
-        Parameters:
-        idx (int): Index of the instance.
-
-        Returns:
-        int: The predicted class.
+        Returns
+        -------
+        int
+            The number of samples that were correctly classified initially but are misclassified
+            after removing points.
         """
-        nearest_neighbor_idx, _ = self.nearest_neighbour(idx)
-        return self.y[nearest_neighbor_idx]
-
-    def _number_of_friends_until_nearest_enemy(self, idx: int) -> int:
-        """
-        Calculate the number of friends an instance has until the nearest enemy.
-
-        Parameters:
-        idx (int): Index of the instance.
-
-        Returns:
-        int: Number of friends until the nearest enemy.
-        """
-        return max(
-            0,
-            (self.nearest_enemy_index(idx) - self.nearest_enemies_pointer[idx])
-            - (self.nearest_friend_index(idx) - self.nearest_friends_pointer[idx]),
-        )
-
-    def _sort_by_nearest_enemy(self) -> np.ndarray:
-        """
-        Sort instances by the number of friends they have until the nearest enemy.
-
-        Returns:
-        np.ndarray: Indices of the instances sorted by the number of friends they have.
-        """
-        return np.argsort(
-            [
-                self._number_of_friends_until_nearest_enemy(idx)
-                for idx in range(self.n_samples)
-            ]
-        )
+        misclassifications = 0
+        for i in range(self.n_samples):
+            if (
+                self.mask[i]
+                and self.classify_correct[i]
+                and self.y[i] != self._classify(i)
+            ):
+                misclassifications += 1
+        return misclassifications
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> "PStability":
         """
         Fit the model using the training data.
 
-        Parameters:
-        X (np.ndarray): Training data.
-        y (np.ndarray): Target values.
+        Parameters
+        ----------
+        X : np.ndarray
+            Training data.
+        y : np.ndarray
+            Target values.
 
-        Returns:
-        self: Fitted instance of the algorithm.
+        Returns
+        -------
+        self
+            Fitted instance of the algorithm.
         """
         super().fit(X, y)
         self.classify_correct = np.array(
@@ -86,75 +70,37 @@ class PStability(KNN):
 
     def run_misses(self, p: list[int]) -> list[int]:
         """
-        Run the stability check for the given values of p using all combinations.
+        Run the stability check for the given values of p cheking all combinations.
 
-        Parameters:
-        p (list[int]): list of values of p to check as the number of points to remove.
+        Parameters
+        ----------
+        p : list[int]
+            List of values of p to check as the number of points to remove.
 
-        Returns:
-        list[int]: list of maximum misclassifications found for each p value.
+        Returns
+        -------
+        list[int]
+            List of maximum misclassifications found for each p value.
         """
         return self._run(p, self._check_combinations)
 
-    def _remove_nearest_neighbours(self, idx: int) -> dict[int, list[int]]:
-        """
-        Remove the nearest neighbours of a point until nearest enemy is reached.
-
-        Parameters:
-        idx (int): Index of the point.
-
-        Returns:
-        dict[int, list[int]]: Dictionary of indices that had their nearest pointers updated containing
-        the indices of the nearest neighbours and the indices of the nearest enemies.
-        """
-        nearest_friends_pointer = self.nearest_friend_index(idx)
-        nearest_neighbours_enemy_pointer = self.nearest_enemy_index(idx)
-        neighbour_idx = self.nearest_neighbours[idx][
-            nearest_friends_pointer:nearest_neighbours_enemy_pointer
-        ]
-        changes = {}
-        changes["neighbours"] = neighbour_idx
-        self.mask[neighbour_idx] = False
-        changes["update_nearest_friends"] = {}
-        changes["update_nearest_enemies"] = {}
-        for idx2 in range(self.n_samples):
-            while self.nearest_friend(idx2) in neighbour_idx:
-                changes["update_nearest_friends"][idx2] = (
-                    changes["update_nearest_friends"].get(idx2, 0) + 1
-                )
-                self.nearest_friends_pointer[idx2] += 1
-            while self.nearest_enemy(idx2) in neighbour_idx:
-                changes["update_nearest_enemies"][idx2] = (
-                    changes["update_nearest_enemies"].get(idx2, 0) + 1
-                )
-                self.nearest_enemies_pointer[idx2] += 1
-        return changes
-
-    def _put_back_nearest_neighbours(self, changed_list: dict[int, list[int]]) -> None:
-        """
-        Put back the nearest neighbours of a point that were removed.
-
-        Parameters:
-        changed_list (list[int]): List of indices that had their nearest pointers updated.
-        """
-        neighbours_idx = changed_list["neighbours"]
-        self.mask[neighbours_idx] = True
-        for idx2, count in changed_list["update_nearest_friends"].items():
-            self.nearest_friends_pointer[idx2] -= count
-        for idx2, count in changed_list["update_nearest_enemies"].items():
-            self.nearest_enemies_pointer[idx2] -= count
-
     def _find_p(self, miss: int, start_index: int = 0) -> int:
         """
-        Find the minimum p value that will result in at most miss misclassifications.
+        Find the minimum p value that results in at most `miss` misclassifications.
         In each iteration, the algorithm assume that a point is the point that gonna be misclassified
         and check the for minimum p that not gonna misclassify more than miss points.
 
-        Parameters:
-        miss (int): The (maximum) number of misclassifications.
+        Parameters
+        ----------
+        miss : int
+            The maximum number of allowable misclassifications.
+        start_index : int, optional
+            The starting index for the search, by default 0.
 
-        Returns:
-        int: Maximum number of p that not gonna misclassify more than miss points.
+        Returns
+        -------
+        int
+            The minimum p value that results in at most `miss` misclassifications.
         """
         if miss == 0:
             for idx in self.nearest_enemy_sorted_index:
@@ -177,14 +123,17 @@ class PStability(KNN):
 
     def run_max_p(self, misses: list[int]) -> list[int]:
         """
-        Find the maximum p value that will result no more than the given number of misclassifications.
+        Find the maximum p value that results in no more than the given number of misclassifications.
 
+        Parameters
+        ----------
+        misses : list[int]
+            List of maximum allowable misclassifications for each p value.
 
-        Parameters:
-        p (list[int]): list of values of p to check as the number of points to remove.
-
-        Returns:
-        list[int]: list of maximum misclassifications found for each p value.
+        Returns
+        -------
+        list[int]
+            List of maximum p values found for each number of allowable misclassifications.
         """
         return self._run(misses, self._find_p)
 
@@ -192,11 +141,15 @@ class PStability(KNN):
         """
         Run the relaxed stability check for the given values of p.
 
-        Parameters:
-        p (list[int]): list of values of p to check as the number of points to remove.
+        Parameters
+        ----------
+        p : list[int]
+            List of values of p to check as the number of points to remove.
 
-        Returns:
-        list[int]: list of maximum misclassifications found for each p value.
+        Returns
+        -------
+        list[int]
+            List of maximum misclassifications found for each p value.
         """
         return self._run(p, self._relaxed_check)
 
@@ -204,12 +157,17 @@ class PStability(KNN):
         """
         Run the stability check using the specified function for the given values of p.
 
-        Parameters:
-        p (list[int]): list of values of p to check as the number of points to remove.
-        check_fn (callable): Function to use for checking stability.
+        Parameters
+        ----------
+        p : list[int]
+            List of values of p to check as the number of points to remove.
+        check_fn : callable
+            Function to use for checking stability.
 
-        Returns:
-        list[int]: list of maximum misclassifications found for each p value.
+        Returns
+        -------
+        list[int]
+            List of maximum misclassifications found for each p value.
         """
         # Check that model is fitted
         if self.n_samples is None:
@@ -228,11 +186,15 @@ class PStability(KNN):
         """
         Perform a relaxed check by removing points and counting misclassifications.
 
-        Parameters:
-        p (int): Number of points to remove.
+        Parameters
+        ----------
+        p : int
+            Number of points to remove.
 
-        Returns:
-        int: Number of misclassifications.
+        Returns
+        -------
+        int
+            Number of misclassifications after the removal.
         """
         removed = 0
         misses = 0
@@ -250,76 +212,21 @@ class PStability(KNN):
 
         return misses
 
-    def _remove_point_update_neighbours(
-        self, idx: int
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Remove a point from the mask and update the nearest pointer for the neighbours.
-
-        Parameters:
-        idx (int): Index of the point to remove.
-
-        Returns:
-        Tuple[np.ndarray, np.ndarray]: Arrays of indices that had their nearest pointers updated.
-        The first array contains the indices of the nearest neighbours and the second array
-        contains the indices of the nearest enemies.
-        """
-        self.mask[idx] = False
-        changed_nearest_neighbor = np.nonzero(
-            [self.nearest_friend(idx2) == idx for idx2 in range(self.n_samples)]
-        )[0]
-        self.nearest_friends_pointer[changed_nearest_neighbor] += 1
-
-        changed_nearest_enemy = np.nonzero(
-            [self.nearest_enemy(idx2) == idx for idx2 in range(self.n_samples)]
-        )[0]
-        self.nearest_enemies_pointer[changed_nearest_enemy] += 1
-
-        return [changed_nearest_neighbor, changed_nearest_enemy]
-
-    def _put_back_point(self, idx: int, changed: np.ndarray) -> None:
-        """
-        Put back a point to the mask and update the nearest pointer
-        for the neighbours which had been changed.
-
-        Parameters:
-        idx (int): Index of the point to put back.
-        changed (np.ndarray): Array of indices that had their nearest pointers updated.
-        """
-        self.mask[idx] = True
-        changed_nearest_neighbor, changed_nearest_enemy = changed
-        self.nearest_friends_pointer[changed_nearest_neighbor] -= 1
-        self.nearest_enemies_pointer[changed_nearest_enemy] -= 1
-
-    def _calculate_stability(self) -> int:
-        """
-        Check how many samples that classified correctly at first will misclassify
-        after removing p points using the mask.
-
-        Returns:
-        int: The number of samples that classify correctly at first but misclassify
-        after removing p points.
-        """
-        misclassifications = 0
-        for i in range(self.n_samples):
-            if (
-                self.mask[i]
-                and self.classify_correct[i]
-                and self.y[i] != self._classify(i)
-            ):
-                misclassifications += 1
-        return misclassifications
-
     def _check_combinations(self, p: int, start_index: int = 0) -> int:
         """
-        Check all the combinations of p points to remove.
+        Check all combinations of p points to remove and determine maximum misclassifications.
 
-        Parameters:
-        p (int): Number of points to remove.
-        start_index (int): Starting index for combinations.
+        Parameters
+        ----------
+        p : int
+            Number of points to remove.
+        start_index : int, optional
+            Starting index for combinations, by default 0.
 
-        Returns:
-        int: Maximum number of misclassifications found.
+        Returns
+        -------
+        int
+            Maximum number of misclassifications found.
         """
         if p == 0:
             return self._calculate_stability()
