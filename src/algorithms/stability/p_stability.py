@@ -21,6 +21,7 @@ class PStability(KNN):
         self.classify_correct: np.ndarray = None
         self.p: list[int] = None
         self.max_misses: list[int] = None
+        self.nearest_enemy_sorted_index: list[int] = None
 
     def _calculate_stability(self) -> int:
         """
@@ -43,46 +44,32 @@ class PStability(KNN):
                 misclassifications += 1
         return misclassifications
 
-    def fit(self, X: np.ndarray, y: np.ndarray) -> "PStability":
+    def convert_misses_to_p_list(self, list_max_p: list) -> list:
         """
-        Fit the model using the training data.
+        Get the list which index is the number of misclassifications and the value is the maximum p value that
+        results in that no more than that number of misclassifications. The returned the assoicated misclassifications
+        for each p value.
+
+        ! The index of list_max_p list should be the maximum number of misclassifications.
 
         Parameters
         ----------
-        X : np.ndarray
-            Training data.
-        y : np.ndarray
-            Target values.
+        list_max_p : list
+            List of maximum p values found for each number of allowable misclassifications.
 
         Returns
         -------
-        self
-            Fitted instance of the algorithm.
-        """
-        super().fit(X, y)
-        self.classify_correct = np.array(
-            [self._classify(i) == y[i] for i in range(self.n_samples)]
-        )
-        # Sort instances by the number of friends they have until the nearest enemy in descending order
-        self.nearest_enemy_sorted_index = self._sort_by_nearest_enemy()
-
-        return self
-
-    def run_misses(self, p: list[int]) -> list[int]:
-        """
-        Run the stability check for the given values of p cheking all combinations.
-
-        Parameters
-        ----------
-        p : list[int]
-            List of values of p to check as the number of points to remove.
-
-        Returns
-        -------
-        list[int]
+        list
             List of maximum misclassifications found for each p value.
         """
-        return self._run(p, self._check_combinations)
+        list_max_miss = [0] * (max(list_max_p) + 1)
+        pointer_list_max_p, pointer_list_max_miss = 0, 0
+        while pointer_list_max_p < len(list_max_p):
+            while pointer_list_max_miss <= list_max_p[pointer_list_max_p]:
+                list_max_miss[pointer_list_max_miss] = pointer_list_max_p
+                pointer_list_max_miss += 1
+            pointer_list_max_p += 1
+        return list_max_miss
 
     def find_instance_with_min_friends(self, start_index: int = 0) -> int:
         """
@@ -107,75 +94,30 @@ class PStability(KNN):
                     min_friends, min_idx = friends, idx
         return min_idx
 
-    def _find_p(self, miss: int, start_index: int = 0) -> int:
+    def fit(self, X: np.ndarray, y: np.ndarray) -> "PStability":
         """
-        Find the minimum p value that results in at most `miss` misclassifications.
-        In each iteration, the algorithm assume that a point is the point that gonna be misclassified
-        and check the for minimum p that not gonna misclassify more than miss points.
+        Fit the model using the training data.
 
         Parameters
         ----------
-        miss : int
-            The maximum number of allowable misclassifications.
-        start_index : int, optional
-            The starting index for the search, by default 0.
+        X : np.ndarray
+            Training data.
+        y : np.ndarray
+            Target values.
 
         Returns
         -------
-        int
-            The minimum p value that results in at most `miss` misclassifications.
+        self
+            Fitted instance of the algorithm.
         """
-        if miss == 0:
-            idx_min_friends = self.find_instance_with_min_friends(start_index)
-            if idx_min_friends == -1:
-                return 0
-            return self._number_of_friends_until_nearest_enemy(idx_min_friends) - 1
-        max_p = self.n_samples + 1
-        for idx in range(start_index, self.n_samples):
-            if self.mask[idx] and self.classify_correct[idx]:
-                changes = self._remove_nearest_neighbours(idx)
-                missed = self._calculate_stability()
-                if missed <= miss:
-                    res_max_p = self._find_p(miss - missed, idx + 1)
-                    if res_max_p != -1:
-                        max_p = min(max_p, res_max_p + len(changes["neighbours"]))
+        super().fit(X, y)
+        self.classify_correct = np.array(
+            [self._classify(i) == y[i] for i in range(self.n_samples)]
+        )
+        # Sort instances by the number of friends they have until the nearest enemy in descending order
+        self.number_of_friends_sorted_index = self._sort_by_number_of_friends()
 
-                self._put_back_nearest_neighbours(changes)
-        if max_p == self.n_samples + 1:
-            return 0
-        return max_p
-
-    def run_max_p(self, misses: list[int]) -> list[int]:
-        """
-        Find the maximum p value that results in no more than the given number of misclassifications.
-
-        Parameters
-        ----------
-        misses : list[int]
-            List of maximum allowable misclassifications for each p value.
-
-        Returns
-        -------
-        list[int]
-            List of maximum p values found for each number of allowable misclassifications.
-        """
-        return self._run(misses, self._find_p)
-
-    def run_relaxed_misses(self, p: list[int]) -> list[int]:
-        """
-        Run the relaxed stability check for the given values of p.
-
-        Parameters
-        ----------
-        p : list[int]
-            List of values of p to check as the number of points to remove.
-
-        Returns
-        -------
-        list[int]
-            List of maximum misclassifications found for each p value.
-        """
-        return self._run(p, self._relaxed_check)
+        return self
 
     def _run(self, p: list[int], check_fn: callable) -> list[int]:
         """
@@ -206,37 +148,7 @@ class PStability(KNN):
 
         return ret
 
-    def _relaxed_check(self, p: int) -> int:
-        """
-        Perform a relaxed check by removing points and counting misclassifications.
-
-        Parameters
-        ----------
-        p : int
-            Number of points to remove.
-
-        Returns
-        -------
-        int
-            Number of misclassifications after the removal.
-        """
-        removed = 0
-        misses = 0
-        pointer = 0
-        while pointer < self.n_samples:
-            idx = self.nearest_enemy_sorted_index[pointer]
-            if self.classify_correct[idx]:
-                self.mask[idx] = False
-                if removed + self._number_of_friends_until_nearest_enemy(idx) > p:
-                    break
-                removed += self._number_of_friends_until_nearest_enemy(idx)
-                misses += 1
-
-            pointer += 1
-
-        return misses
-
-    def _check_combinations(self, p: int, start_index: int = 0) -> int:
+    def _find_exact_miss(self, p: int, start_index: int = 0) -> int:
         """
         Check all combinations of p points to remove and determine maximum misclassifications.
 
@@ -265,7 +177,144 @@ class PStability(KNN):
         ):
             if self.mask[idx]:
                 changed = self._remove_point_update_neighbours(idx)
-                misses = self._check_combinations(p - 1, idx + 1)
+                misses = self._find_exact_miss(p - 1, idx + 1)
                 max_misses = max(max_misses, misses)
                 self._put_back_point(idx, changed)
         return max_misses
+
+    def run_exact_miss(self, max_p: int) -> list[int]:
+        """
+        Run the exact maximum misclassifications check for each p value in the range [0, max_p].
+        By checking all possible combinations of removing p points.
+
+        Parameters
+        ----------
+        max_p : int
+            Maximum number of points to remove.
+
+        Returns
+        -------
+        list[int]
+            List of maximum misclassifications found for each p value in range[0, max_p].
+        """
+        return self._run(range(max_p + 1), self._find_exact_miss)
+
+    def _find_exact_p(self, miss: int, start_index: int = 0) -> int:
+        """
+        Find the maximum p value that results no more than the given number of misclassifications
+        in any combination of removing p points.
+        By checking all possible combinations instances to be misclassified.
+
+        Parameters
+        ----------
+        miss : int
+            The maximum number of allowable misclassifications.
+        start_index : int, optional
+            The starting index for the search, by default 0.
+
+        Returns
+        -------
+        int
+            The maximum p value found for the given number of allowable misclassifications.
+            returns -1 if no such p value found.
+        """
+        if miss == 0:
+            idx_min_friends = self.find_instance_with_min_friends(start_index)
+            if idx_min_friends == -1:
+                return 0
+            return self._number_of_friends_until_nearest_enemy(idx_min_friends) - 1
+        max_p = self.n_samples + 1
+        # Assume that each instance is misclassified by removing all its friends.
+        for idx in range(start_index, self.n_samples):
+            if self.mask[idx] and self.classify_correct[idx]:
+                changes = self._remove_nearest_neighbours(idx)
+                missed = self._calculate_stability()
+                if missed <= miss:
+                    res_max_p = self._find_exact_p(miss - missed, idx + 1)
+                    if res_max_p != -1:
+                        max_p = min(max_p, res_max_p + len(changes["neighbours"]))
+
+                self._put_back_nearest_neighbours(changes)
+        if max_p == self.n_samples + 1:
+            return -1
+        return max_p
+
+    def run_exact_p(self, max_miss: int) -> list[int]:
+        """
+        Find the exact maximum p value that results in no more than the given number of misclassifications
+
+        Parameters
+        ----------
+        max_miss : int
+            Maximum allowable misclassifications.
+
+        Returns
+        -------
+        list[int]
+            List of maximum p values found for each number of allowable misclassifications in range[0, max_miss].
+        """
+        return self._run(range(max_miss + 1), self._find_exact_p)
+
+    def _find_lower_bound_p(self, miss: int) -> int:
+        """
+        Find the lower bound of the maximum p value that results in no more
+        than the given number of misclassifications in any combination of removing p points.
+        Assume that the friends of each instance is completely on the rest of the
+        instances after that in increasing friends size order in each class.
+        And check for each class because to have a lower bound, removed instances should be
+        from the same class.
+
+        Parameters
+        ----------
+        miss : int
+            The maximum number of allowable misclassifications.
+
+        Returns
+        -------
+        int
+            The maximum p value found for the given number of allowable misclassifications.
+
+            # TODO: returns -1 if no such p value found that exactly results in the given number of misclassifications.
+        """
+        if miss == 0:
+            return self.number_of_friends_sorted_index[0][1] - 1
+        max_p = self.n_samples + 1
+        for class_label in self.classes:
+            # Select instances of the class in the order of increasing number of friends
+            number_of_friends_sorted_index_class = [
+                (idx, n_friends)
+                for (idx, n_friends) in self.number_of_friends_sorted_index
+                if self.y[idx] == class_label
+            ]
+            # Check if exact miss is possible by checking the next instance in the order to
+            # have more friends than the current instance.
+            if (
+                number_of_friends_sorted_index_class[miss - 1][1]
+                == number_of_friends_sorted_index_class[miss][1]
+            ):
+                continue
+            else:
+                max_p = min(
+                    max_p,
+                    number_of_friends_sorted_index_class[miss][1] - 1,
+                )
+        if max_p == self.n_samples + 1:
+            return -1
+        return max_p
+
+    def run_lower_bound_p(self, max_miss: int) -> list[int]:
+        """
+        Find the lower bound of the maximum p value that results in no more
+        than the given number of misclassifications.
+        Parameters
+        ----------
+        misses : list[int]
+            List of maximum allowable misclassifications for each p value.
+
+        Returns
+        -------
+        list[int]
+            List of maximum p values found for each number of allowable
+            misclassifications in range[0, max_miss].
+        """
+        return self._run(range(max_miss + 1), self._find_lower_bound_p)

@@ -14,14 +14,19 @@ if __name__ == "__main__":
     with measure_time("fitting"):
         p_stability.fit(X, y)
 
-    # with measure_time("running"):
-    #     list_max_misses = p_stability.run_misses(range(1, 4))
+    # with measure_time("Runtime: Exact missclassifications for each #p"):
+    #     list_max_misses = p_stability.run_exact_miss(3)
     #     logger.info(f"Maximum misclassifications: {list_max_misses}")
 
-    with measure_time("relaxed running"):
-        list_max_misses = p_stability.run_relaxed_misses(range(1, 30))
-        logger.info(f"Maximum misclassifications (relaxed): {list_max_misses}")
+    # with measure_time("Runtime: Exact p for each #missclassification"):
+    #     list_exact_p = p_stability.run_exact_p(2)
+    #     logger.info(f"Maximum p for stability: {list_exact_p}")
 
-    with measure_time("Find maximum p for stability"):
-        max_p = p_stability.run_max_p(range(1, 4))
-        logger.info(f"Maximum p for stability: {max_p}")
+    # list_exact_misses = p_stability.convert_misses_to_p_list(list_exact_p)
+    # logger.info(f"{[(p, misses) for p, misses in enumerate(list_exact_misses)]}")
+
+    with measure_time("Runtime: Lower bound p for each #missclassification"):
+        list_lower_bound_p = p_stability.run_lower_bound_p(20)
+        logger.info(f"Lower bound p for stability: {list_lower_bound_p}")
+    associated_p = p_stability.convert_misses_to_p_list(list_lower_bound_p)
+    logger.info(f"{[(p, misses) for p, misses in enumerate(associated_p)]}")

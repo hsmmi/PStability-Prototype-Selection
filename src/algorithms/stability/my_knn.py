@@ -27,6 +27,8 @@ class KNN:
         self.y: np.ndarray = None
         self.n_samples: int = None
         self.n_features: int = None
+        self.n_classes: int = None
+        self.classes: np.ndarray = None
         self.metric: str = metric
         self.distance_to_nearest_neighbour: np.ndarray = None
         self.nearest_neighbours: np.ndarray = None
@@ -209,20 +211,22 @@ class KNN:
             - (self.nearest_friend_index(idx) - self.nearest_friends_pointer[idx]),
         )
 
-    def _sort_by_nearest_enemy(self) -> np.ndarray:
+    def _sort_by_number_of_friends(self) -> list[Tuple[int, int]]:
         """
         Sort instances by the number of friends they have until the nearest enemy.
 
         Returns
         -------
-        np.ndarray
-            Indices of the instances sorted by the number of friends they have.
+        list[Tuple[int, int]]
+            List of (indices, number of friends until nearest enemy) sorted by
+            the number of friends in ascending order.
         """
-        return np.argsort(
+        return sorted(
             [
-                self._number_of_friends_until_nearest_enemy(idx)
+                (idx, self._number_of_friends_until_nearest_enemy(idx))
                 for idx in range(self.n_samples)
-            ]
+            ],
+            key=lambda x: x[1],
         )
 
     def _remove_nearest_neighbours(self, idx: int) -> dict[int, list[int]]:
@@ -359,8 +363,10 @@ class KNN:
             raise
 
         self.X = X
-        self.y = y
         self.n_samples, self.n_features = X.shape
+        self.y = y
+        self.classes = np.unique(y)
+        self.n_classes = len(self.classes)
 
         logger.debug(f"Fitting KNN with k={self.k} and metric={self.metric}.")
         knn = NearestNeighbors(n_neighbors=self.n_samples, metric=self.metric)
