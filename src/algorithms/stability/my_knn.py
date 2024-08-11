@@ -40,6 +40,17 @@ class KNN:
         self.nearest_enemies: np.ndarray = None
         self.nearest_enemies_pointer: np.ndarray = None
         self.update_nearest_enemy: bool = update_nearest_enemy
+        self.mask: np.ndarray = None
+        self.classify_correct: np.ndarray = None
+        self.friends: list[list[int]] = None
+
+    def _reset_KNN(self) -> None:
+        """
+        Reset the changes made.
+        """
+        self.mask = np.ones(self.n_samples, dtype=bool)
+        self.nearest_friends_pointer = np.zeros(self.n_samples, dtype=int)
+        self.nearest_enemies_pointer = np.zeros(self.n_samples, dtype=int)
 
     def _classify(self, idx: int) -> int:
         """
@@ -338,6 +349,41 @@ class KNN:
         if self.update_nearest_enemy:
             self.nearest_enemies_pointer[changed_nearest_enemy] -= 1
 
+    def find_friends_list(self, idx: int) -> list[int]:
+        """
+        Find the friends of an instance. Which is the set of instances that have
+        the same class as the instance and are before the nearest enemy.
+
+        Parameters
+        ----------
+        idx : int
+            Index of the instance.
+
+        Returns
+        -------
+        list[int]
+            List of indices of the friends of the instance.
+        """
+        indeces = self.nearest_neighbours[idx][
+            self.nearest_friend_index(idx) : self.nearest_enemy_index(idx)
+        ]
+        # remove the previous enemies
+        previous_enemies = self.nearest_neighbours[idx][
+            self.nearest_enemies[idx][: self.nearest_enemies_pointer[idx]]
+        ]
+        if len(previous_enemies) > 0:
+            indeces = [i for i in indeces if i not in previous_enemies]
+        return indeces
+
+    def _set_friends(self):
+        """
+        Find the friends for each instance.
+        """
+        self.friends = [
+            self.find_friends_list(idx) if self.mask[idx] else []
+            for idx in range(self.n_samples)
+        ]
+
     def fit(self, X: np.ndarray, y: np.ndarray) -> "KNN":
         """
         Fit the KNN model using the training data.
@@ -376,6 +422,11 @@ class KNN:
         )[:, 1:]
 
         self._set_nearest_enemy_pointer()
+
+        self.mask = np.ones(self.n_samples, dtype=bool)
+        self.classify_correct = np.array(
+            [self._classify(i) == y[i] for i in range(self.n_samples)]
+        )
 
         logger.info("Nearest neighbours and enemies set.")
         logger.info("Model fitting complete.")
