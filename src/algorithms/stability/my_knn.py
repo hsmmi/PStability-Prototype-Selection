@@ -43,14 +43,7 @@ class KNN:
         self.mask: np.ndarray = None
         self.classify_correct: np.ndarray = None
         self.friends: list[list[int]] = None
-
-    def _reset_KNN(self) -> None:
-        """
-        Reset the changes made.
-        """
-        self.mask = np.ones(self.n_samples, dtype=bool)
-        self.nearest_friends_pointer = np.zeros(self.n_samples, dtype=int)
-        self.nearest_enemies_pointer = np.zeros(self.n_samples, dtype=int)
+        self.number_of_friends_sorted_index: list[Tuple[int, int]] = None
 
     def _classify(self, idx: int) -> int:
         """
@@ -186,8 +179,9 @@ class KNN:
         """
         return self.nearest_neighbours[idx][r]
 
-    def _set_nearest_enemy_pointer(self):
+    def _set_nearest_friends_enemies(self):
         """
+        Set the nearest friends and enemies for each instance.
         Set the pointers to the nearest enemies and friends for each instance.
         """
         self.nearest_friends = []
@@ -222,9 +216,10 @@ class KNN:
             - (self.nearest_friend_index(idx) - self.nearest_friends_pointer[idx]),
         )
 
-    def _sort_by_number_of_friends(self) -> list[Tuple[int, int]]:
+    def _set_number_of_friends_sorted_index(self) -> "None":
         """
         Sort instances by the number of friends they have until the nearest enemy.
+        Just return the instances that are in the mask.
 
         Returns
         -------
@@ -232,10 +227,11 @@ class KNN:
             List of (indices, number of friends until nearest enemy) sorted by
             the number of friends in ascending order.
         """
-        return sorted(
+        self.number_of_friends_sorted_index = sorted(
             [
                 (idx, self._number_of_friends_until_nearest_enemy(idx))
                 for idx in range(self.n_samples)
+                if self.mask[idx]
             ],
             key=lambda x: x[1],
         )
@@ -267,17 +263,27 @@ class KNN:
         if self.update_nearest_enemy:
             changes["update_nearest_enemies"] = {}
         for idx2 in range(self.n_samples):
-            while self.nearest_friend(idx2) in neighbour_idx:
+            nearest_friend_idx = self.nearest_friend(idx2)
+            while (
+                nearest_friend_idx in neighbour_idx
+                or self.mask[nearest_friend_idx] == False
+            ):
                 changes["update_nearest_friends"][idx2] = (
                     changes["update_nearest_friends"].get(idx2, 0) + 1
                 )
                 self.nearest_friends_pointer[idx2] += 1
+                nearest_friend_idx = self.nearest_friend(idx2)
             if self.update_nearest_enemy:
-                while self.nearest_enemy(idx2) in neighbour_idx:
+                nearest_enemy_idx = self.nearest_enemy(idx2)
+                while (
+                    nearest_enemy_idx in neighbour_idx
+                    or self.mask[nearest_enemy_idx] == False
+                ):
                     changes["update_nearest_enemies"][idx2] = (
                         changes["update_nearest_enemies"].get(idx2, 0) + 1
                     )
                     self.nearest_enemies_pointer[idx2] += 1
+                    nearest_enemy_idx = self.nearest_enemy(idx2)
         return changes
 
     def _put_back_nearest_neighbours(self, changed_list: dict[int, list[int]]) -> None:
@@ -300,7 +306,7 @@ class KNN:
 
     def _remove_point_update_neighbours(
         self, idx: int
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[dict[int, int], dict[int, int]]:
         """
         Remove a point from the mask and update the nearest pointer for the neighbours.
 
@@ -311,27 +317,33 @@ class KNN:
 
         Returns
         -------
-        Tuple[np.ndarray, np.ndarray]
-            Arrays of indices that had their nearest pointers updated.
-            The first array contains the indices of the nearest neighbours
-            and the second array contains the indices of the nearest enemies.
+        Tuple[dict[int, int], dict[int, int]]
+            Tuple of dictionaries containing the indices that had their nearest pointers
+            updated for the nearest neighbours and the nearest enemies as a key and the
+            number of updates as the value.
         """
         self.mask[idx] = False
-        changed_nearest_neighbor = np.nonzero(
-            [self.nearest_friend(idx2) == idx for idx2 in range(self.n_samples)]
-        )[0]
-        self.nearest_friends_pointer[changed_nearest_neighbor] += 1
-        if self.update_nearest_enemy:
-            changed_nearest_enemy = np.nonzero(
-                [self.nearest_enemy(idx2) == idx for idx2 in range(self.n_samples)]
-            )[0]
-            self.nearest_enemies_pointer[changed_nearest_enemy] += 1
-        else:
-            changed_nearest_enemy = None
-
+        changed_nearest_neighbor = {}
+        changed_nearest_enemy = {}
+        for idx2 in range(self.n_samples):
+            nearest_friend_idx = self.nearest_friend(idx2)
+            while nearest_friend_idx == idx or self.mask[nearest_friend_idx] == False:
+                changed_nearest_neighbor[idx2] = (
+                    changed_nearest_neighbor.get(idx2, 0) + 1
+                )
+                self.nearest_friends_pointer[idx2] += 1
+                nearest_friend_idx = self.nearest_friend(idx2)
+            if self.update_nearest_enemy:
+                nearest_enemy_idx = self.nearest_enemy(idx2)
+                while nearest_enemy_idx == idx or self.mask[nearest_enemy_idx] == False:
+                    changed_nearest_enemy[idx2] = changed_nearest_enemy.get(idx2, 0) + 1
+                    self.nearest_enemies_pointer[idx2] += 1
+                    nearest_enemy_idx = self.nearest_enemy(idx2)
         return [changed_nearest_neighbor, changed_nearest_enemy]
 
-    def _put_back_point(self, idx: int, changed: np.ndarray) -> None:
+    def _put_back_point(
+        self, idx: int, changed: Tuple[dict[int, int], dict[int, int]]
+    ) -> None:
         """
         Put back a point to the mask and update the nearest pointer
         for the neighbours which had been changed.
@@ -340,14 +352,18 @@ class KNN:
         ----------
         idx : int
             Index of the point to put back.
-        changed : np.ndarray
-            Array of indices that had their nearest pointers updated.
+        changed : Tuple[dict[int, int], dict[int, int]]
+            Tuple of dictionaries containing the indices that had their nearest pointers
+            updated for the nearest neighbours and the nearest enemies as a key and the
+            number of updates as the value.
         """
         self.mask[idx] = True
         changed_nearest_neighbor, changed_nearest_enemy = changed
-        self.nearest_friends_pointer[changed_nearest_neighbor] -= 1
+        for idx2, count in changed_nearest_neighbor.items():
+            self.nearest_friends_pointer[idx2] -= count
         if self.update_nearest_enemy:
-            self.nearest_enemies_pointer[changed_nearest_enemy] -= 1
+            for idx2, count in changed_nearest_enemy.items():
+                self.nearest_enemies_pointer[idx2] -= count
 
     def find_friends_list(self, idx: int) -> list[int]:
         """
@@ -383,6 +399,15 @@ class KNN:
             self.find_friends_list(idx) if self.mask[idx] else []
             for idx in range(self.n_samples)
         ]
+
+    def reset(self) -> None:
+        """
+        Reset the changes made.
+        """
+        logger.debug("Resetting changes in KNN.")
+        self.mask = np.ones(self.n_samples, dtype=bool)
+        self.nearest_friends_pointer = np.zeros(self.n_samples, dtype=int)
+        self.nearest_enemies_pointer = np.zeros(self.n_samples, dtype=int)
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> "KNN":
         """
@@ -421,7 +446,7 @@ class KNN:
             X, n_neighbors=self.n_samples, return_distance=False
         )[:, 1:]
 
-        self._set_nearest_enemy_pointer()
+        self._set_nearest_friends_enemies()
 
         self.mask = np.ones(self.n_samples, dtype=bool)
         self.classify_correct = np.array(
