@@ -272,7 +272,7 @@ class PStability(KNN):
         Returns
         -------
         int
-            The maximum p value found for the given number of allowable misclassifications.
+            The lower bound of the maximum p value found for the given number of allowable misclassifications.
 
             # TODO: returns -1 if no such p value found that exactly results in the given number of misclassifications.
         """
@@ -314,7 +314,43 @@ class PStability(KNN):
         Returns
         -------
         list[int]
-            List of maximum p values found for each number of allowable
+            List of lower bound p values found for each number of allowable
             misclassifications in range[0, max_miss].
         """
         return self._run(range(max_miss + 1), self._find_lower_bound_p)
+
+    def _find_upper_bound_p(self, miss: int) -> int:
+        """
+        Find the upper bound of the maximum p value that results in no more
+        than the given number of misclassifications in any combination of removing p points.
+        Assume that the enemies of each instance is UNIQELY among the rest of the instances.
+
+        Parameters
+        ----------
+        miss : int
+            The maximum number of allowable misclassifications.
+
+        Returns
+        -------
+        int
+            The upper bound of the maximum p value found for the given number
+            of allowable misclassifications.
+        """
+        return self.number_of_friends_sorted_index[miss][1] - 1
+
+    def run_upper_bound_p(self, max_miss: int) -> list[int]:
+        """
+        Find the upper bound of the maximum p value that results in no more
+        than the given number of misclassifications.
+        Parameters
+        ----------
+        misses : list[int]
+            List of maximum allowable misclassifications for each p value.
+
+        Returns
+        -------
+        list[int]
+            List of upper bound p values found for each number of allowable
+            misclassifications in range[0, max_miss].
+        """
+        return self._run(range(max_miss + 1), self._find_upper_bound_p)
