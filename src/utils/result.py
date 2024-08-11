@@ -3,16 +3,28 @@ import tabulate
 from config import LOG_PATH
 
 
-def log_result(result, file_name, dataset, log_file=True, log_console=True) -> None:
+def log_result(
+    result: dict,
+    file_name: str,
+    dataset: str,
+    log_file: bool = True,
+    log_console: bool = True,
+) -> None:
     """
     Log the results of the experiment to a file and/or console.
 
-    Parameters:
-    result (dict): Dictionary containing the results for each algorithm.
-    file_name (str): Name of the file to log the results.
-    dataset (str): Name of the dataset used in the experiment.
-    log_file (bool): Whether to log the results to a file.
-    log_console (bool): Whether to log the results to the console
+        Parameters
+        ----------
+        result : dict
+            Dictionary containing the results for each algorithm.
+        file_name : str
+            Name of the file to log the results.
+        dataset : str
+            Name of the dataset used in the experiment.
+        log_file : bool, optional
+            Whether to log the results to a file (default is True).
+        log_console : bool, optional
+            Whether to log the results to the console (default is True).
     """
     formatted_result = {
         key: {
