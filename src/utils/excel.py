@@ -53,6 +53,27 @@ def save_to_excel(results: dict, file_name: str, mode: str = "new_sheet") -> Non
                     {"bold": True, "align": "center", "valign": "vcenter", "border": 1}
                 )
 
+                # Calculate and set column widths based on the longest entry
+                for col_num, col_name in enumerate(df.columns):
+                    max_len = max(
+                        df[col_name].astype(str).apply(len).max(), len(col_name)
+                    )
+                    worksheet.set_column(col_num, col_num, max_len + 2)
+
+                # Calculate total width required for the title
+                title_len = len(table_name)
+                total_width = sum(
+                    max(
+                        df[col_name].astype(str).apply(len).max(),
+                        len(col_name),
+                    )
+                    + 2
+                    for col_name in df.columns
+                )
+                if total_width < title_len + 2:
+                    adjusted_width = (title_len + 2) // n_cols + 1
+                    worksheet.set_column(0, n_cols - 1, adjusted_width)
+
                 # Merge and center the title across the table columns
                 worksheet.merge_range(0, 0, 0, n_cols - 1, table_name, title_format)
 
@@ -86,6 +107,31 @@ def save_to_excel(results: dict, file_name: str, mode: str = "new_sheet") -> Non
             for table_name, table_data in results.items():
                 df = pd.DataFrame(table_data)
                 n_rows, n_cols = df.shape
+
+                # Calculate and set column widths based on the longest entry
+                for col_num, col_name in enumerate(df.columns):
+                    max_len = max(
+                        df[col_name].astype(str).apply(len).max(), len(col_name)
+                    )
+                    worksheet.set_column(
+                        start_col + col_num, start_col + col_num, max_len + 2
+                    )
+
+                # Calculate total width required for the title
+                title_len = len(table_name)
+                total_width = sum(
+                    max(
+                        df[col_name].astype(str).apply(len).max(),
+                        len(col_name),
+                    )
+                    + 2
+                    for col_name in df.columns
+                )
+                if total_width < title_len + 2:
+                    adjusted_width = (title_len + 2) // n_cols + 1
+                    worksheet.set_column(
+                        start_col, start_col + n_cols - 1, adjusted_width
+                    )
 
                 # Merge and write the table name as the title
                 worksheet.merge_range(

@@ -266,8 +266,8 @@ class KNN:
             nearest_friend_idx = self.nearest_friend(idx2)
             while (
                 nearest_friend_idx in neighbour_idx
-                or self.mask[nearest_friend_idx] == False
-            ):
+                or (self.mask[nearest_friend_idx] is False)
+            ) and nearest_friend_idx != -1:
                 changes["update_nearest_friends"][idx2] = (
                     changes["update_nearest_friends"].get(idx2, 0) + 1
                 )
@@ -278,7 +278,7 @@ class KNN:
                 while (
                     nearest_enemy_idx in neighbour_idx
                     or self.mask[nearest_enemy_idx] == False
-                ):
+                ) and nearest_enemy_idx != -1:
                     changes["update_nearest_enemies"][idx2] = (
                         changes["update_nearest_enemies"].get(idx2, 0) + 1
                     )
@@ -327,7 +327,9 @@ class KNN:
         changed_nearest_enemy = {}
         for idx2 in range(self.n_samples):
             nearest_friend_idx = self.nearest_friend(idx2)
-            while nearest_friend_idx == idx or self.mask[nearest_friend_idx] == False:
+            while (
+                nearest_friend_idx == idx or self.mask[nearest_friend_idx] == False
+            ) and nearest_friend_idx != -1:
                 changed_nearest_neighbor[idx2] = (
                     changed_nearest_neighbor.get(idx2, 0) + 1
                 )
@@ -335,7 +337,9 @@ class KNN:
                 nearest_friend_idx = self.nearest_friend(idx2)
             if self.update_nearest_enemy:
                 nearest_enemy_idx = self.nearest_enemy(idx2)
-                while nearest_enemy_idx == idx or self.mask[nearest_enemy_idx] == False:
+                while (
+                    nearest_enemy_idx == idx or self.mask[nearest_enemy_idx] == False
+                ) and nearest_enemy_idx != -1:
                     changed_nearest_enemy[idx2] = changed_nearest_enemy.get(idx2, 0) + 1
                     self.nearest_enemies_pointer[idx2] += 1
                     nearest_enemy_idx = self.nearest_enemy(idx2)
@@ -367,38 +371,58 @@ class KNN:
 
     def find_friends_list(self, idx: int) -> list[int]:
         """
-        Find the friends of an instance. Which is the set of instances that have
-        the same class as the instance and are before the nearest enemy.
+        Find the friends of an instance. "Friends" are the instances that have
+        the same class label as the target instance and occur before the nearest enemy
+        in the list of nearest neighbors.
 
         Parameters
         ----------
         idx : int
-            Index of the instance.
+            Index of the target instance.
 
         Returns
         -------
         list[int]
-            List of indices of the friends of the instance.
+            List of indices of the friends of the instance. Returns an empty list
+            if no friends are found or if the target instance is not in the mask.
         """
-        indeces = self.nearest_neighbours[idx][
-            self.nearest_friend_index(idx) : self.nearest_enemy_index(idx)
-        ]
-        # remove the previous enemies
-        previous_enemies = self.nearest_neighbours[idx][
-            self.nearest_enemies[idx][: self.nearest_enemies_pointer[idx]]
-        ]
-        if len(previous_enemies) > 0:
-            indeces = [i for i in indeces if i not in previous_enemies]
-        return indeces
+        # If the instance is not in the mask, return an empty list
+        if not self.mask[idx]:
+            return []
 
-    def _set_friends(self):
+        # Find the indices of the nearest friend and nearest enemy
+        nearest_friend_pointer = self.nearest_friend_index(idx)
+        nearest_enemy_pointer = self.nearest_enemy_index(idx)
+
+        # Fetch the class label of the target instance
+        class_label = self.y[idx]
+
+        # Retrieve the list of nearest neighbours for the instance
+        nearest_neighbour = self.nearest_neighbours[idx]
+
+        # Collect the friends that appear before the nearest enemy
+        friends_list = []
+        for pointer in range(nearest_friend_pointer, nearest_enemy_pointer):
+            neighbour_idx = nearest_neighbour[pointer]
+
+            # Check if the neighbour is in the mask and shares the same class label
+            if self.mask[neighbour_idx] and self.y[neighbour_idx] == class_label:
+                friends_list.append(neighbour_idx)
+
+        return friends_list
+
+    def compute_all_firends(self) -> list[list[int]]:
         """
         Find the friends for each instance.
+
+        Returns
+        -------
+        list[list[int]]
+            List of lists containing the indices of the friends for each instance.
+            Index i in the list corresponds to the friends of instance i.
         """
-        self.friends = [
-            self.find_friends_list(idx) if self.mask[idx] else []
-            for idx in range(self.n_samples)
-        ]
+
+        return [self.find_friends_list(idx) for idx in range(self.n_samples)]
 
     def reset(self) -> None:
         """
