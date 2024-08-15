@@ -1,4 +1,5 @@
 from matplotlib import pyplot as plt
+import numpy as np
 from config import FIGURE_PATH
 
 
@@ -20,39 +21,84 @@ def plot_algorithm_results(
     X_ (numpy.ndarray): Reduced feature matrix.
     y_ (numpy.ndarray): Reduced labels.
     title (str): Title of the plot.
+    save_plot (bool): Whether to save the plot as a file.
+    show_plot (bool): Whether to display the plot.
     """
-    point_size = 10
-    # Compare the original and reduced dataset next to each other
-    _, axs = plt.subplots(1, 2, figsize=(12, 6))
-    axs[0].scatter(
-        X[y == 0][:, 0], X[y == 0][:, 1], label="Class 0", color="red", s=point_size
-    )
-    axs[0].scatter(
-        X[y == 1][:, 0], X[y == 1][:, 1], label="Class 1", color="blue", s=point_size
-    )
+    # Adjust marker size and line width
+    point_size = 30  # Increased marker size for better visibility
+    linewidth = 0.5  # Reduced line width for better visibility
+    alpha = 0.8  # Set transparency level for markers
+
+    # Define marker properties for each class
+    marker_properties = {
+        0: {
+            "marker": "x",
+            "s": point_size,
+            # Steel Blue
+            "facecolors": "#4682B4",
+            "linewidths": linewidth,
+        },
+        1: {
+            "marker": "o",
+            "s": point_size,
+            "facecolors": "none",
+            "edgecolors": "black",
+            "linewidths": linewidth,
+        },
+    }
+
+    # Set up the figure and subplots
+    fig, axs = plt.subplots(1, 2, figsize=(14, 7))  # Slightly larger figure for clarity
+
+    # Plot the original dataset
+    for label in np.unique(y):
+        props = marker_properties[label]
+        axs[0].scatter(
+            X[y == label][:, 0],
+            X[y == label][:, 1],
+            label=f"Class {label}",
+            marker=props["marker"],
+            alpha=alpha,
+            s=props["s"],
+            facecolors=props["facecolors"],
+            # Apply edgecolors only if specified (for hollow markers)
+            **({"edgecolors": props["edgecolors"]} if "edgecolors" in props else {}),
+            linewidths=props["linewidths"],
+        )
     axs[0].set_title("Original Dataset")
     axs[0].legend()
-    axs[1].scatter(
-        X_[y_ == 0][:, 0], X_[y_ == 0][:, 1], label="Class 0", color="red", s=point_size
-    )
-    axs[1].scatter(
-        X_[y_ == 1][:, 0],
-        X_[y_ == 1][:, 1],
-        label="Class 1",
-        color="blue",
-        s=point_size,
-    )
-    # Axis 1 has the same scale as axis 0
+
+    # Plot the reduced dataset
+    for label in np.unique(y_):
+        props = marker_properties[label]
+        axs[1].scatter(
+            X_[y_ == label][:, 0],
+            X_[y_ == label][:, 1],
+            label=f"Class {label}",
+            marker=props["marker"],
+            alpha=alpha,
+            s=props["s"],
+            facecolors=props["facecolors"],
+            # Apply edgecolors only if specified (for hollow markers)
+            **({"edgecolors": props["edgecolors"]} if "edgecolors" in props else {}),
+            linewidths=props["linewidths"],
+        )
+    # Ensure the same scale for both subplots
     axs[1].set_xlim(axs[0].get_xlim())
     axs[1].set_ylim(axs[0].get_ylim())
     axs[1].set_title("Reduced Dataset")
     axs[1].legend()
+
+    # Set the overall title
     plt.suptitle(title)
 
+    # Save the plot if required
     if save_plot:
         plt.savefig(FIGURE_PATH + title + ".png")
+
+    # Show the plot if required
     if show_plot:
         plt.show()
 
-    # Close the plot
+    # Close the plot to free memory
     plt.close()

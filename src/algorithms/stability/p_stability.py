@@ -23,23 +23,14 @@ class PStability(KNN):
     def _calculate_stability(self) -> int:
         """
         Check how many samples that classified correctly at first will misclassify
-        after removing p points using the mask.
+        now in the current state.
 
         Returns
         -------
         int
-            The number of samples that were correctly classified initially but are misclassified
-            after removing points.
+            The number of samples that were correctly classified initially but are misclassified now.
         """
-        misclassifications = 0
-        for i in range(self.n_samples):
-            if (
-                self.mask[i]
-                and self.classify_correct[i]
-                and self.y[i] != self._classify(i)
-            ):
-                misclassifications += 1
-        return misclassifications
+        return self.n_misses - self.n_misses_initial
 
     def convert_misses_to_p_list(self, list_max_p: list) -> list:
         """
@@ -68,29 +59,6 @@ class PStability(KNN):
             pointer_list_max_p += 1
         return list_max_miss
 
-    def find_instance_with_min_friends(self, start_index: int = 0) -> int:
-        """
-        Find the instance with the minimum number of friends until the nearest enemy.
-        The instance must be classified correctly.
-
-        Parameters
-        ----------
-        start_index : int, optional
-            The starting index for the search, by default 0.
-
-        Returns
-        -------
-        int
-            The index of the instance with the minimum number of friends until the nearest enemy.
-        """
-        min_friends, min_idx = self.n_samples + 1, -1
-        for idx in range(start_index, self.n_samples):
-            if self.mask[idx] and self.classify_correct[idx]:
-                friends = self._number_of_friends_until_nearest_enemy(idx)
-                if friends < min_friends:
-                    min_friends, min_idx = friends, idx
-        return min_idx
-
     def find_fuzzy_missclassification_score(self) -> list[Tuple[int, float]]:
         """
         Calculate the fuzzy misclassification score for each instance.
@@ -104,7 +72,7 @@ class PStability(KNN):
 
         scores = np.zeros(self.n_samples)
         for idx in range(self.n_samples):
-            if self.mask[idx]:
+            if self.mask_train[idx]:
                 # Calculate the score for the instance
                 # If the instance is in the friends of the other instances with friend size L,
                 # then it gets 1/L score from that instance.
@@ -193,7 +161,7 @@ class PStability(KNN):
         # Check that model is fitted
         if self.n_samples is None:
             raise ValueError("Model is not fitted. Run fit method first.")
-        self.mask = np.ones(self.n_samples, dtype=bool)
+        self.mask_train = np.ones(self.n_samples, dtype=bool)
         ret = []
         for p_value in p:
             logger.debug(f"Checking {check_fn.__name__} for p={p_value}")
@@ -230,8 +198,8 @@ class PStability(KNN):
             leave=False,
             disable=p < 3,
         ):
-            if self.mask[idx]:
-                changed = self._remove_point_update_neighbours(idx)
+            if self.mask_train[idx]:
+                changed = self._remove_point(idx)
                 misses = self._find_exact_miss(p - 1, idx + 1)
                 max_misses = max(max_misses, misses)
                 self._put_back_point(idx, changed)
@@ -274,22 +242,23 @@ class PStability(KNN):
             returns -1 if no such p value found.
         """
         if miss == 0:
-            idx_min_friends = self.find_instance_with_min_friends(start_index)
+            idx_min_friends, friends = self.find_instance_with_min_friends(start_index)
             if idx_min_friends == -1:
                 return 0
-            return self._number_of_friends_until_nearest_enemy(idx_min_friends) - 1
+            return len(friends) - 1
         max_p = self.n_samples + 1
-        # Assume that each instance is misclassified by removing all its friends.
+        # Assume that each instance going to be misclassified
+        # with removing it's friends
         for idx in range(start_index, self.n_samples):
-            if self.mask[idx] and self.classify_correct[idx]:
-                changes = self._remove_nearest_neighbours(idx)
-                missed = self._calculate_stability()
+            if self.mask_train[idx]:
+                changes = self._remove_nearest_friends(idx)
+                missed = len(changes["classify_incorrect"])
                 if missed <= miss:
                     res_max_p = self._find_exact_p(miss - missed, idx + 1)
                     if res_max_p != -1:
-                        max_p = min(max_p, res_max_p + len(changes["neighbours"]))
+                        max_p = min(max_p, res_max_p + len(changes["friends"]))
 
-                self._put_back_nearest_neighbours(changes)
+                self._put_back_nearest_friends(changes)
         if max_p == self.n_samples + 1:
             return -1
         return max_p
@@ -370,14 +339,14 @@ class PStability(KNN):
             List of lower bound p values found for each number of allowable
             misclassifications in range[0, max_miss].
         """
-        self._set_number_of_friends_sorted_index()
+        self.number_of_friends_sorted_index = self.find_number_of_friends_sorted_index()
         return self._run(range(max_miss + 1), self._find_lower_bound_p)
 
     def _find_upper_bound_p(self, miss: int) -> int:
         """
         Find the upper bound of the maximum p value that results in no more
         than the given number of misclassifications in any combination of removing p points.
-        Assume that the enemies of each instance is UNIQELY among the rest of the instances.
+        Assume that the friends of each instance is UNIQELY among the rest of the instances.
 
         Parameters
         ----------
@@ -410,8 +379,68 @@ class PStability(KNN):
             List of upper bound p values found for each number of allowable
             misclassifications in range[0, max_miss].
         """
-        self._set_number_of_friends_sorted_index()
+        self.number_of_friends_sorted_index = self.find_number_of_friends_sorted_index()
         return self._run(range(max_miss + 1), self._find_upper_bound_p)
+
+    def _find_better_upper_bound_p(self, miss: int) -> int:
+        """
+        Find the better upper bound of the maximum p value that results in no more
+        than the given number of misclassifications in any combination of removing p points.
+        Assume that the friends of each instance can be among the rest of the instances.
+        And we will remove it's friends from list of other instances friends.
+        In each step, we greedily select the instance with the minimum number of friends
+        and remove it's friends and update the friends of other instances.
+
+        Parameters
+        ----------
+        miss : int
+            The maximum number of allowable misclassifications.
+
+        Returns
+        -------
+        int
+            The better upper bound of the maximum p value found for the given number
+            of allowable misclassifications.
+        """
+        # Greedily select the instance with the minimum number of friends
+        idx_min_friends, friends = self.find_instance_with_min_friends()
+        if miss < 0:
+            logger.warning(
+                f"Value of miss is negative: {miss}. In find_better_upper_bound_p."
+            )
+        if miss == 0:
+            if idx_min_friends == -1:
+                return 0
+            return len(friends) - 1
+        if idx_min_friends == -1:
+            return -self.n_samples**2
+        changes = self._remove_nearest_friends(idx_min_friends)
+        missed = len(changes["classify_incorrect"])
+        if miss - missed >= 0:
+            rest = self._find_better_upper_bound_p(miss - missed)
+        else:
+            rest = -self.n_samples**2
+        self._put_back_nearest_friends(changes)
+        return rest + len(changes["friends"])
+
+    def run_better_upper_bound_p(self, max_p: int) -> list[int]:
+        """
+        Run the better upper bound of the maximum p value that results in no more
+        than the given number of misclassifications.
+
+        Parameters
+        ----------
+        max_p : int
+            Maximum number of points to remove.
+
+        Returns
+        -------
+        list[int]
+            List of maximum misclassifications found for each p value in range[0, max_p].
+        """
+        ret = self._run(range(max_p + 1), self._find_better_upper_bound_p)
+        ret = list(np.where(np.array(ret) < 0, -1, ret))
+        return ret
 
     def _find_fuzzy_missclassification(self, p: int) -> float:
         """
@@ -470,7 +499,7 @@ class PStability(KNN):
         float
             The fuzzy stability of the model.
         """
-        removed = np.where(self.mask == False)[0]
+        removed = np.where(self.mask_train == False)[0]
         fuzzy_misses = 0
         # Calculate the fuzzy missclassification score for each sample
         scores = self.find_fuzzy_missclassification_score()

@@ -60,6 +60,14 @@ if __name__ == "__main__":
             "#p": list_upper_bound_p,
         }
 
+    with measure_time("Runtime: Better upper bound p for each #missclassification"):
+        list_better_upper_bound_p = p_stability.run_better_upper_bound_p(20)
+        logger.info(f"Better upper bound p for stability: {list_better_upper_bound_p}")
+        excel_content["Better Upper Bound p"] = {
+            "#misses": range(len(list_better_upper_bound_p)),
+            "#p": list_better_upper_bound_p,
+        }
+
     with measure_time("Runtime: Fuzzy misclassifications for each #p"):
         list_fuzzy_misses = p_stability.run_fuzzy_missclassification(10)
         logger.info(f"Fuzzy misclassifications: {list_fuzzy_misses}")

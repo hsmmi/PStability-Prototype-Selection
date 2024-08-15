@@ -9,9 +9,7 @@ logger.setLevel("INFO")
 
 
 class KNN:
-    def __init__(
-        self, metric: str = "euclidean", update_nearest_enemy: bool = False
-    ) -> None:
+    def __init__(self, metric: str = "euclidean") -> None:
         """
         Initialize the KNN model with the specified distance metric.
 
@@ -39,28 +37,12 @@ class KNN:
         # So nearest enemy index is self.nearest_neighbours[self.nearest_enemies[idx]][self.nearest_enemies_pointer[idx]]
         self.nearest_enemies: np.ndarray = None
         self.nearest_enemies_pointer: np.ndarray = None
-        self.update_nearest_enemy: bool = update_nearest_enemy
-        self.mask: np.ndarray = None
+        self.mask_train: np.ndarray = None
         self.classify_correct: np.ndarray = None
         self.friends: list[list[int]] = None
         self.number_of_friends_sorted_index: list[Tuple[int, int]] = None
-
-    def _classify(self, idx: int) -> int:
-        """
-        Classify an instance using 1-NN.
-
-        Parameters
-        ----------
-        idx : int
-            The index of the instance to classify.
-
-        Returns
-        -------
-        int
-            The predicted class of the instance.
-        """
-        nearest_neighbor_idx, _ = self.nearest_neighbour(idx)
-        return self.y[nearest_neighbor_idx]
+        self.n_misses: int = None
+        self.n_misses_initial: int = None
 
     def nearest_friend_index(self, idx: int) -> int:
         """
@@ -156,10 +138,33 @@ class KNN:
         nearest_friend_idx = self.nearest_friend_index(idx)
         nearest_enemy_idx = self.nearest_enemy_index(idx)
 
+        # if there is no nearest friend i.e. index is out of bounds (-1)
+        if nearest_friend_idx == -1:
+            return nearest_enemy_idx, False
+        if nearest_enemy_idx == -1:
+            return nearest_friend_idx, True
+
         if nearest_friend_idx < nearest_enemy_idx:
             return self.nearest_friend(idx), True
         else:
             return self.nearest_enemy(idx), False
+
+    def _classify(self, idx: int) -> int:
+        """
+        Classify an instance using 1-NN.
+
+        Parameters
+        ----------
+        idx : int
+            The index of the instance to classify.
+
+        Returns
+        -------
+        int
+            The predicted class of the instance.
+        """
+        nearest_neighbor_idx, _ = self.nearest_neighbour(idx)
+        return self.y[nearest_neighbor_idx]
 
     def r_nearest_neighbour(self, idx: int, r: int) -> int:
         """
@@ -196,179 +201,6 @@ class KNN:
             self.nearest_enemies.append(enemy_indices)
             self.nearest_friends.append(np.where(~is_enemy)[0])
 
-    def _number_of_friends_until_nearest_enemy(self, idx: int) -> int:
-        """
-        Calculate the number of friends an instance has until the nearest enemy.
-
-        Parameters
-        ----------
-        idx : int
-            Index of the instance.
-
-        Returns
-        -------
-        int
-            Number of friends until the nearest enemy.
-        """
-        return max(
-            0,
-            (self.nearest_enemy_index(idx) - self.nearest_enemies_pointer[idx])
-            - (self.nearest_friend_index(idx) - self.nearest_friends_pointer[idx]),
-        )
-
-    def _set_number_of_friends_sorted_index(self) -> "None":
-        """
-        Sort instances by the number of friends they have until the nearest enemy.
-        Just return the instances that are in the mask.
-
-        Returns
-        -------
-        list[Tuple[int, int]]
-            List of (indices, number of friends until nearest enemy) sorted by
-            the number of friends in ascending order.
-        """
-        self.number_of_friends_sorted_index = sorted(
-            [
-                (idx, self._number_of_friends_until_nearest_enemy(idx))
-                for idx in range(self.n_samples)
-                if self.mask[idx]
-            ],
-            key=lambda x: x[1],
-        )
-
-    def _remove_nearest_neighbours(self, idx: int) -> dict[int, list[int]]:
-        """
-        Remove the nearest neighbours of a point until the nearest enemy is reached.
-
-        Parameters
-        ----------
-        idx : int
-            Index of the point.
-
-        Returns
-        -------
-        dict[int, list[int]]
-            Dictionary of indices that had their nearest pointers updated containing
-            the indices of the nearest neighbours and the indices of the nearest enemies.
-        """
-        nearest_friends_pointer = self.nearest_friend_index(idx)
-        nearest_neighbours_enemy_pointer = self.nearest_enemy_index(idx)
-        neighbour_idx = self.nearest_neighbours[idx][
-            nearest_friends_pointer:nearest_neighbours_enemy_pointer
-        ]
-        changes = {}
-        changes["neighbours"] = neighbour_idx
-        self.mask[neighbour_idx] = False
-        changes["update_nearest_friends"] = {}
-        if self.update_nearest_enemy:
-            changes["update_nearest_enemies"] = {}
-        for idx2 in range(self.n_samples):
-            nearest_friend_idx = self.nearest_friend(idx2)
-            while (
-                nearest_friend_idx in neighbour_idx
-                or (self.mask[nearest_friend_idx] is False)
-            ) and nearest_friend_idx != -1:
-                changes["update_nearest_friends"][idx2] = (
-                    changes["update_nearest_friends"].get(idx2, 0) + 1
-                )
-                self.nearest_friends_pointer[idx2] += 1
-                nearest_friend_idx = self.nearest_friend(idx2)
-            if self.update_nearest_enemy:
-                nearest_enemy_idx = self.nearest_enemy(idx2)
-                while (
-                    nearest_enemy_idx in neighbour_idx
-                    or self.mask[nearest_enemy_idx] == False
-                ) and nearest_enemy_idx != -1:
-                    changes["update_nearest_enemies"][idx2] = (
-                        changes["update_nearest_enemies"].get(idx2, 0) + 1
-                    )
-                    self.nearest_enemies_pointer[idx2] += 1
-                    nearest_enemy_idx = self.nearest_enemy(idx2)
-        return changes
-
-    def _put_back_nearest_neighbours(self, changed_list: dict[int, list[int]]) -> None:
-        """
-        Put back the nearest neighbours of a point that were removed.
-
-        Parameters
-        ----------
-        changed_list : dict[int, list[int]]
-            Dictionary of indices that had their nearest pointers updated, including
-            the indices of the nearest neighbours and the indices of the nearest enemies.
-        """
-        neighbours_idx = changed_list["neighbours"]
-        self.mask[neighbours_idx] = True
-        for idx2, count in changed_list["update_nearest_friends"].items():
-            self.nearest_friends_pointer[idx2] -= count
-        if self.update_nearest_enemy:
-            for idx2, count in changed_list["update_nearest_enemies"].items():
-                self.nearest_enemies_pointer[idx2] -= count
-
-    def _remove_point_update_neighbours(
-        self, idx: int
-    ) -> Tuple[dict[int, int], dict[int, int]]:
-        """
-        Remove a point from the mask and update the nearest pointer for the neighbours.
-
-        Parameters
-        ----------
-        idx : int
-            Index of the point to remove.
-
-        Returns
-        -------
-        Tuple[dict[int, int], dict[int, int]]
-            Tuple of dictionaries containing the indices that had their nearest pointers
-            updated for the nearest neighbours and the nearest enemies as a key and the
-            number of updates as the value.
-        """
-        self.mask[idx] = False
-        changed_nearest_neighbor = {}
-        changed_nearest_enemy = {}
-        for idx2 in range(self.n_samples):
-            nearest_friend_idx = self.nearest_friend(idx2)
-            while (
-                nearest_friend_idx == idx or self.mask[nearest_friend_idx] == False
-            ) and nearest_friend_idx != -1:
-                changed_nearest_neighbor[idx2] = (
-                    changed_nearest_neighbor.get(idx2, 0) + 1
-                )
-                self.nearest_friends_pointer[idx2] += 1
-                nearest_friend_idx = self.nearest_friend(idx2)
-            if self.update_nearest_enemy:
-                nearest_enemy_idx = self.nearest_enemy(idx2)
-                while (
-                    nearest_enemy_idx == idx or self.mask[nearest_enemy_idx] == False
-                ) and nearest_enemy_idx != -1:
-                    changed_nearest_enemy[idx2] = changed_nearest_enemy.get(idx2, 0) + 1
-                    self.nearest_enemies_pointer[idx2] += 1
-                    nearest_enemy_idx = self.nearest_enemy(idx2)
-        return [changed_nearest_neighbor, changed_nearest_enemy]
-
-    def _put_back_point(
-        self, idx: int, changed: Tuple[dict[int, int], dict[int, int]]
-    ) -> None:
-        """
-        Put back a point to the mask and update the nearest pointer
-        for the neighbours which had been changed.
-
-        Parameters
-        ----------
-        idx : int
-            Index of the point to put back.
-        changed : Tuple[dict[int, int], dict[int, int]]
-            Tuple of dictionaries containing the indices that had their nearest pointers
-            updated for the nearest neighbours and the nearest enemies as a key and the
-            number of updates as the value.
-        """
-        self.mask[idx] = True
-        changed_nearest_neighbor, changed_nearest_enemy = changed
-        for idx2, count in changed_nearest_neighbor.items():
-            self.nearest_friends_pointer[idx2] -= count
-        if self.update_nearest_enemy:
-            for idx2, count in changed_nearest_enemy.items():
-                self.nearest_enemies_pointer[idx2] -= count
-
     def find_friends_list(self, idx: int) -> list[int]:
         """
         Find the friends of an instance. "Friends" are the instances that have
@@ -386,9 +218,9 @@ class KNN:
             List of indices of the friends of the instance. Returns an empty list
             if no friends are found or if the target instance is not in the mask.
         """
-        # If the instance is not in the mask, return an empty list
-        if not self.mask[idx]:
-            return []
+        # # If the instance is not in the mask, return an empty list
+        # if not self.mask_train[idx]:
+        #     return []
 
         # Find the indices of the nearest friend and nearest enemy
         nearest_friend_pointer = self.nearest_friend_index(idx)
@@ -406,8 +238,17 @@ class KNN:
             neighbour_idx = nearest_neighbour[pointer]
 
             # Check if the neighbour is in the mask and shares the same class label
-            if self.mask[neighbour_idx] and self.y[neighbour_idx] == class_label:
+            if self.mask_train[neighbour_idx] and self.y[neighbour_idx] == class_label:
                 friends_list.append(neighbour_idx)
+
+        if self.classify_correct[idx] == False and len(friends_list) > 0:
+            # raise e ValueError("Instance is classified correctly and has friends.")
+            logger.error(
+                f"Instance {idx} is classified incorrectly but has friends: {friends_list}"
+            )
+        if self.classify_correct[idx] == True and len(friends_list) == 0:
+            # raise e ValueError("Instance is classified incorrectly and has no friends.")
+            logger.error(f"Instance {idx} is classified correctly but has no friends.")
 
         return friends_list
 
@@ -424,12 +265,295 @@ class KNN:
 
         return [self.find_friends_list(idx) for idx in range(self.n_samples)]
 
+    # def _number_of_friends_until_nearest_enemy(self, idx: int) -> int:
+    #     """
+    #     Calculate the number of friends an instance has until the nearest enemy.
+
+    #     Parameters
+    #     ----------
+    #     idx : int
+    #         Index of the instance.
+
+    #     Returns
+    #     -------
+    #     int
+    #         Number of friends until the nearest enemy.
+    #     """
+    #     return len(self.find_friends_list(idx))
+
+    def find_instance_with_min_friends(
+        self, start_index: int = 0
+    ) -> Tuple[int, list[int]]:
+        """
+        Find the instance with the minimum number of friends until the nearest enemy.
+        The instance must be classified correctly.
+
+        ! If the friend list of instance be empty, it will be ignored.
+
+        Parameters
+        ----------
+        start_index : int, optional
+            The starting index for the search, by default 0.
+
+        Returns
+        -------
+        int
+            The index of the instance with the minimum number of friends until the nearest enemy.
+        list[int]
+            The list of friends of the instance.
+        """
+        min_friends, min_idx = self.n_samples + 1, -1
+        min_friends_list = []
+        for idx in range(start_index, self.n_samples):
+            if self.classify_correct[idx]:
+                friends = self.find_friends_list(idx)
+                if len(friends) == 0:
+                    logger.warning(
+                        f"Instance {idx} has no friends and is classified correctly in find min friends."
+                    )
+                    self.find_friends_list(idx)
+                if len(friends) < min_friends:
+                    min_friends, min_idx = len(friends), idx
+                    min_friends_list = friends
+        return min_idx, min_friends_list
+
+    def find_number_of_friends_sorted_index(self) -> "None":
+        """
+        Sort instances by the number of friends they have until the nearest enemy.
+        Just return the instances that are in the mask.
+
+        Returns
+        -------
+        list[Tuple[int, int]]
+            List of (indices, number of friends until nearest enemy) sorted by
+            the number of friends in ascending order.
+        """
+        return sorted(
+            [
+                (idx, len(self.find_friends_list(idx)))
+                for idx in range(self.n_samples)
+                if self.mask_train[idx]
+            ],
+            key=lambda x: x[1],
+        )
+
+    def _remove_nearest_friends(
+        self, idx: int, update_nearest_enemy: bool = False
+    ) -> dict:
+        """
+        Remove the nearest friends of a point until the nearest enemy is reached.
+
+        Parameters
+        ----------
+        idx : int
+            Index of the point.
+        update_nearest_enemy : bool
+            Whether to update the nearest enemies (default is False).
+
+        Returns
+        -------
+        dict
+            A dictionary with the following structure:
+
+            - "classify_incorrect": list[int]
+                A list of indices of instances that become misclassified after removing the friends.
+
+            - "friends": list[int]
+                A list of indices of the nearest friends that were removed.
+
+            - "update_nearest_friends": dict[int, int]
+                A dictionary where the keys are the indices of instances whose nearest friend pointers were updated,
+                and the values are the number of updates for each instance.
+
+            - "update_nearest_enemies": dict[int, int], optional
+                A dictionary where the keys are the indices of instances whose nearest enemy pointers were updated,
+                and the values are the number of updates for each instance. This key is included only if
+                `update_nearest_enemy` is True.
+        """
+        changes = {}
+        changes["friends"] = self.find_friends_list(idx)
+        self.mask_train[changes["friends"]] = False
+
+        changes["update_nearest_friends"] = {}
+        if update_nearest_enemy:
+            changes["update_nearest_enemies"] = {}
+        for idx2 in range(self.n_samples):
+            nearest_friend_idx2 = self.nearest_friend(idx2)
+            while (
+                nearest_friend_idx2 in changes["friends"]
+                or (self.mask_train[nearest_friend_idx2] == False)
+            ) and nearest_friend_idx2 != -1:
+                changes["update_nearest_friends"][idx2] = (
+                    changes["update_nearest_friends"].get(idx2, 0) + 1
+                )
+                self.nearest_friends_pointer[idx2] += 1
+                nearest_friend_idx2 = self.nearest_friend(idx2)
+            if update_nearest_enemy:
+                nearest_enemy_idx2 = self.nearest_enemy(idx2)
+                while (
+                    nearest_enemy_idx2 in changes["friends"]
+                    or self.mask_train[nearest_enemy_idx2] == False
+                ) and nearest_enemy_idx2 != -1:
+                    changes["update_nearest_enemies"][idx2] = (
+                        changes["update_nearest_enemies"].get(idx2, 0) + 1
+                    )
+                    self.nearest_enemies_pointer[idx2] += 1
+                    nearest_enemy_idx2 = self.nearest_enemy(idx2)
+
+        changes["classify_incorrect"] = []
+        # Check if instance becomes misclassified after removing the friends of the point
+        for idx2 in range(self.n_samples):
+            if self.classify_correct[idx2] and self._classify(idx2) != self.y[idx2]:
+                changes["classify_incorrect"].append(idx2)
+                self.classify_correct[idx2] = False
+                self.n_misses += 1
+        return changes
+
+    def _put_back_nearest_friends(self, changed_list: dict) -> None:
+        """
+        Put back the nearest friends of a point that were removed.
+
+        Parameters
+        ----------
+        changed_list : dict
+            A dictionary with the following structure:
+
+            - "classify_incorrect": list[int]
+                A list of indices of instances that become misclassified after removing the friends.
+
+            - "friends": list[int]
+                A list of indices of the nearest friends that were removed.
+
+            - "update_nearest_friends": dict[int, int]
+                A dictionary where the keys are the indices of instances whose nearest friend pointers were updated,
+
+            - "update_nearest_enemies": dict[int, int], optional
+                A dictionary where the keys are the indices of instances whose nearest enemy pointers were updated,
+                and the values are the number of updates for each instance. This key is included only if
+        """
+        neighbours_idx = changed_list["friends"]
+        for idx in changed_list["classify_incorrect"]:
+            self.classify_correct[idx] = True
+            self.n_misses -= 1
+        self.mask_train[neighbours_idx] = True
+        for idx2, count in changed_list["update_nearest_friends"].items():
+            self.nearest_friends_pointer[idx2] -= count
+        if "update_nearest_enemies" in changed_list:
+            for idx2, count in changed_list["update_nearest_enemies"].items():
+                self.nearest_enemies_pointer[idx2] -= count
+
+    def _remove_point(self, idx: int, update_nearest_enemy: bool = False) -> dict:
+        """
+        Remove a point from the mask and update the nearest pointer for other instances.
+
+        Parameters
+        ----------
+        idx : int
+            Index of the point to remove.
+        update_nearest_enemy : bool
+            Whether to update the nearest enemies (default is False).
+
+        Returns
+        -------
+        dict
+            A dictionary with the following structure:
+
+            - "classify_incorrect": list[int]
+                A list of indices of instances that become misclassified after removing the point.
+
+            - "update_nearest_friends": dict[int, int]
+                A dictionary where the keys are the indices of instances whose nearest friend pointers were updated,
+                and the values are the number of updates for each instance.
+
+            - "update_nearest_enemies": dict[int, int], optional
+                A dictionary where the keys are the indices of instances whose nearest enemy pointers were updated,
+                and the values are the number of updates for each instance. This key is included only if
+                `update_nearest_enemy` is True.
+
+        """
+        self.mask_train[idx] = False
+        changes = {}
+        changes["classify_incorrect"] = []
+        changes["update_nearest_friends"] = {}
+        changes["update_nearest_enemies"] = {}
+        for idx2 in range(self.n_samples):
+            nearest_friend_idx = self.nearest_friend(idx2)
+            while (
+                nearest_friend_idx == idx
+                or self.mask_train[nearest_friend_idx] == False
+            ) and nearest_friend_idx != -1:
+                changes["update_nearest_friends"][idx2] = (
+                    changes["update_nearest_friends"].get(idx2, 0) + 1
+                )
+                self.nearest_friends_pointer[idx2] += 1
+                nearest_friend_idx = self.nearest_friend(idx2)
+            if update_nearest_enemy:
+                nearest_enemy_idx = self.nearest_enemy(idx2)
+                while (
+                    nearest_enemy_idx == idx
+                    or self.mask_train[nearest_enemy_idx] == False
+                ) and nearest_enemy_idx != -1:
+                    changes["update_nearest_enemies"][idx2] = (
+                        changes["update_nearest_enemies"].get(idx2, 0) + 1
+                    )
+                    self.nearest_enemies_pointer[idx2] += 1
+                    nearest_enemy_idx = self.nearest_enemy(idx2)
+            # Check if instance becomes misclassified after removing the point
+            if (
+                self.mask_train[idx2]
+                and self.classify_correct[idx2]
+                and self._classify(idx2) != self.y[idx2]
+            ):
+                changes["classify_incorrect"].append(idx2)
+                self.classify_correct[idx2] = False
+                self.n_misses += 1
+        return changes
+
+    def _put_back_point(
+        self,
+        idx: int,
+        changed: Tuple[dict[int, int], dict[int, int]],
+    ) -> None:
+        """
+        Put back a point to the mask and update the nearest pointer
+        for the instances which had been changed.
+
+        Parameters
+        ----------
+        idx : int
+            Index of the point to put back.
+        changed : dict
+            A dictionary with the following structure:
+
+            - "classify_incorrect": list[int]
+                A list of indices of instances that become misclassified after removing the point.
+
+            - "update_nearest_friends": dict[int, int]
+                A dictionary where the keys are the indices of instances whose nearest friend pointers were updated,
+                and the values are the number of updates for each instance.
+
+            - "update_nearest_enemies": dict[int, int], optional
+                A dictionary where the keys are the indices of instances whose nearest enemy pointers were updated,
+                and the values are the number of updates for each instance. This key is included only if
+                `update_nearest_enemy` is True.
+
+        """
+        for idx2 in changed["classify_incorrect"]:
+            self.classify_correct[idx2] = True
+            self.n_misses -= 1
+        self.mask_train[idx] = True
+        for idx2, count in changed["update_nearest_friends"].items():
+            self.nearest_friends_pointer[idx2] -= count
+        if "update_nearest_enemies" in changed:
+            for idx2, count in changed["update_nearest_enemies"].items():
+                self.nearest_enemies_pointer[idx2] -= count
+
     def reset(self) -> None:
         """
         Reset the changes made.
         """
         logger.debug("Resetting changes in KNN.")
-        self.mask = np.ones(self.n_samples, dtype=bool)
+        self.mask_train = np.ones(self.n_samples, dtype=bool)
         self.nearest_friends_pointer = np.zeros(self.n_samples, dtype=int)
         self.nearest_enemies_pointer = np.zeros(self.n_samples, dtype=int)
 
@@ -472,10 +596,12 @@ class KNN:
 
         self._set_nearest_friends_enemies()
 
-        self.mask = np.ones(self.n_samples, dtype=bool)
+        self.mask_train = np.ones(self.n_samples, dtype=bool)
         self.classify_correct = np.array(
             [self._classify(i) == y[i] for i in range(self.n_samples)]
         )
+        self.n_misses = self.n_samples - np.sum(self.classify_correct)
+        self.n_misses_initial = self.n_misses
 
         logger.info("Nearest neighbours and enemies set.")
         logger.info("Model fitting complete.")

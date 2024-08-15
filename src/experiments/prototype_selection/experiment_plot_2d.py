@@ -1,7 +1,9 @@
 from src.utils.visualization import plot_algorithm_results
 from src.utils.data_preprocessing import load_data
 
+from src.algorithms.prototype_selection.enn import ENN
 from src.algorithms.prototype_selection.cnn import CNN
+from src.algorithms.prototype_selection.drlsh import DRLSH
 from src.algorithms.prototype_selection.drop3 import DROP3
 from src.algorithms.prototype_selection.icf import ICF
 from src.algorithms.prototype_selection.ldis import LDIS
@@ -17,7 +19,9 @@ datasets = ["circles_0.05", "moons_0.15", "banana"]
 
 # Define the algorithms
 algorithms = {
+    "ENN": {"algorithm": ENN().fit_transform},
     "CNN": {"algorithm": CNN().fit_transform},
+    "DRLSH": {"algorithm": DRLSH().fit_transform},
     "DROP3": {"algorithm": DROP3().fit_transform},
     "ICF": {"algorithm": ICF().fit_transform},
     "LDIS": {"algorithm": LDIS().fit_transform},
