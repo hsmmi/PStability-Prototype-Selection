@@ -37,37 +37,115 @@ class PrototypeSelection(PStability):
         super().fit(X, y)
         return self
 
-    def prototype_reduction(self, p: int) -> Tuple[np.ndarray, float]:
+    def find_total_fuzzy_missclassification_score_teain(self, p: int) -> float:
         """
-        Reduce the number of samles by removing p prototypes.
+        Find the total fuzzy missclassification score for the training data.
+        Fuzzy missclassification score + number of misclassified instances.
 
         Parameters
         ----------
         p : int
-            Number of prototypes to remove.
+            p-stability parameter to use.(For fuzzy missclassification score)
 
         Returns
         -------
-        Tuple[np.ndarray, float]
-            A tuple containing the indices of the removed prototypes and the number of misclassifications
+        float
+            Total fuzzy missclassification score.
         """
+        fuzzy_miss_score, _ = self.run_fuzzy_missclassification(p)
+        return fuzzy_miss_score + self.n_misses
 
-        if p == 0:
-            return np.array([]), 0
+    def find_best_prototype(self, p: int) -> Tuple[int, float]:
+        """
+        Find the prototype which after removing gives the minimum
+        total fuzzy missclassification score.
 
-        # Find instance with maximum fuzzy missclassification score
-        idx, fuzzy_miss = self.find_max_fuzzy_missclassification_score()
+        Parameters
+        ----------
+        p : int
+            p-stability parameter to use.(For fuzzy missclassification score)
 
-        if idx == -1:
-            return -1
+        Returns
+        -------
+        Tuple[int, float]
+            A tuple containing the index of the prototype and the
+            total fuzzy missclassification score.
+        """
+        min_idx, min_score = -1, np.inf
+        for idx in np.where(self.mask_train)[0]:
+            changed = self._remove_point(idx)
+            score = self.find_total_fuzzy_missclassification_score_teain(p)
+            if score < min_score:
+                min_idx, min_score = idx, score
+            self._put_back_point(idx, changed)
+        return min_idx, min_score
 
-        # Remove the instance with the maximum fuzzy missclassification score
-        changed = self._remove_point_update_neighbours(idx)
+    def prototype_reduction(self, p: int) -> dict:
+        """
+        The order of prototypes to remove based on p-stability.
 
-        # Recursively call the prototype reduction function
-        removed, misses = self.prototype_reduction(p - 1)
+        Parameters
+        ----------
+        p : int
+            p-stability parameter to use.(For fuzzy missclassification score)
 
-        # Put back the removed instance
-        self._put_back_point(idx, changed)
+        Returns
+        -------
+        dict
+            A dictionary containing the following keys:
 
-        return np.concatenate(([idx], removed)), misses + fuzzy_miss
+            - removed_prototypes: list,
+                List of prototypes removed in order.
+
+            - total_scores: list,
+                List of total fuzzy missclassification scores after
+
+            - base_total_score: float,
+                Total fuzzy missclassification score before removing any prototype.
+
+            - idx_min_total_score: int,
+                Number of prototypes removed which gives the minimum
+                total fuzzy missclassification score.
+
+            - last_idx_under_base: int,
+                Maximum number of prototypes removed which gives a total fuzzy
+                missclassification score less than the base total score.
+        """
+        base_total_score = self.find_total_fuzzy_missclassification_score_teain(p)
+        removed_prototypes = [-1]
+        total_scores = [base_total_score]
+        idx_min_total_score, min_total_score = 0, base_total_score
+        last_idx_under_base = 0
+        size_one_class = np.sum(self.y == 1)
+        list_changes = []
+        for idx in range(1, size_one_class + 1):
+            best_remove_idx, best_total_score_after_remove = self.find_best_prototype(p)
+            if best_total_score_after_remove < min_total_score:
+                min_total_score = best_total_score_after_remove
+                idx_min_total_score = idx
+            if best_total_score_after_remove < base_total_score:
+                last_idx_under_base = idx
+            removed_prototypes.append(best_remove_idx)
+            total_scores.append(best_total_score_after_remove)
+            changes = self._remove_point(best_remove_idx)
+            list_changes.append(changes)
+
+        # put back points
+        for idx in range(size_one_class, 0, -1):
+            self._put_back_point(removed_prototypes[idx], list_changes[idx - 1])
+
+        ret = {
+            "removed_prototypes": removed_prototypes,
+            "total_scores": total_scores,
+            "base_total_score": base_total_score,
+            "idx_min_total_score": idx_min_total_score,
+            "min_total_score": min_total_score,
+            "last_idx_under_base": last_idx_under_base,
+        }
+
+        logger.debug(
+            "Removed prototypes: %(removed_prototypes)s",
+            ret,
+        )
+
+        return ret

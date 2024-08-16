@@ -207,6 +207,8 @@ class KNN:
         the same class label as the target instance and occur before the nearest enemy
         in the list of nearest neighbors.
 
+        Instance is index of data test in dataset X. Neighbours are in train data which is in mask.
+
         Parameters
         ----------
         idx : int
@@ -218,10 +220,6 @@ class KNN:
             List of indices of the friends of the instance. Returns an empty list
             if no friends are found or if the target instance is not in the mask.
         """
-        # # If the instance is not in the mask, return an empty list
-        # if not self.mask_train[idx]:
-        #     return []
-
         # Find the indices of the nearest friend and nearest enemy
         nearest_friend_pointer = self.nearest_friend_index(idx)
         nearest_enemy_pointer = self.nearest_enemy_index(idx)
@@ -254,7 +252,7 @@ class KNN:
 
     def compute_all_firends(self) -> list[list[int]]:
         """
-        Find the friends for each instance.
+        Find the friends for each instance test(whole dataset) in train data(mask data).
 
         Returns
         -------
@@ -264,22 +262,6 @@ class KNN:
         """
 
         return [self.find_friends_list(idx) for idx in range(self.n_samples)]
-
-    # def _number_of_friends_until_nearest_enemy(self, idx: int) -> int:
-    #     """
-    #     Calculate the number of friends an instance has until the nearest enemy.
-
-    #     Parameters
-    #     ----------
-    #     idx : int
-    #         Index of the instance.
-
-    #     Returns
-    #     -------
-    #     int
-    #         Number of friends until the nearest enemy.
-    #     """
-    #     return len(self.find_friends_list(idx))
 
     def find_instance_with_min_friends(
         self, start_index: int = 0
@@ -499,11 +481,7 @@ class KNN:
                     self.nearest_enemies_pointer[idx2] += 1
                     nearest_enemy_idx = self.nearest_enemy(idx2)
             # Check if instance becomes misclassified after removing the point
-            if (
-                self.mask_train[idx2]
-                and self.classify_correct[idx2]
-                and self._classify(idx2) != self.y[idx2]
-            ):
+            if self.classify_correct[idx2] and self._classify(idx2) != self.y[idx2]:
                 changes["classify_incorrect"].append(idx2)
                 self.classify_correct[idx2] = False
                 self.n_misses += 1

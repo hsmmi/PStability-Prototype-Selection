@@ -18,7 +18,7 @@ class PStability(KNN):
             Distance metric to use.
         """
         super().__init__(metric)
-        self.sorted_fuzzy_missclassification_score: list[Tuple[int, float]] = None
+        self.sorted_fuzzy_missclassification_score_teain: list[Tuple[int, float]] = None
 
     def _calculate_stability(self) -> int:
         """
@@ -59,9 +59,12 @@ class PStability(KNN):
             pointer_list_max_p += 1
         return list_max_miss
 
-    def find_fuzzy_missclassification_score(self) -> list[Tuple[int, float]]:
+    def find_fuzzy_missclassification_score_teain(
+        self,
+    ) -> list[Tuple[int, float]]:
         """
-        Calculate the fuzzy misclassification score for each instance.
+        Calculate the fuzzy misclassification score for each training instance. Which is based on
+        friends of test instances on the training instances.
 
         Returns
         -------
@@ -69,22 +72,23 @@ class PStability(KNN):
             The (index, score) pairs for each instance.
         """
         friends = self.compute_all_firends()
-
-        scores = np.zeros(self.n_samples)
-        for idx in range(self.n_samples):
-            if self.mask_train[idx]:
-                # Calculate the score for the instance
-                # If the instance is in the friends of the other instances with friend size L,
-                # then it gets 1/L score from that instance.
-                for idx2 in range(self.n_samples):
-                    if len(friends[idx2]) == 0:
-                        continue
-                    if idx in friends[idx2]:
-                        scores[idx] += 1 / len(friends[idx2])
-        scores = [(idx, score) for idx, score in enumerate(scores)]
+        train_indices = np.where(self.mask_train)[0]
+        scores = []
+        # find the score for each training instance
+        for idx in train_indices:
+            score = 0
+            # Calculate the score for the instance
+            # If the instance is in the friends of the other instances with friend size L,
+            # then it gets 1/L score from that instance.
+            for idx2 in range(self.n_samples):
+                if len(friends[idx2]) == 0:
+                    continue
+                if idx in friends[idx2]:
+                    score += 1 / len(friends[idx2])
+            scores.append((idx, score))
         return scores
 
-    def find_max_fuzzy_missclassification_score(self) -> Tuple[int, float]:
+    def find_max_fuzzy_missclassification_score_teain(self) -> Tuple[int, float]:
         """
         Find the instance with the maximum fuzzy misclassification score.
 
@@ -94,24 +98,26 @@ class PStability(KNN):
             The (index, score) pair for the instance with the
             maximum fuzzy misclassification score.
         """
-        scores = self.find_fuzzy_missclassification_score()
+        scores = self.find_fuzzy_missclassification_score_teain()
         max_idx, max_score = -1, -1
         for idx, score in scores:
             if score > max_score:
                 max_idx, max_score = idx, score
         return max_idx, max_score
 
-    def find_sorted_fuzzy_missclassification_score(self) -> list[Tuple[int, float]]:
+    def find_sorted_fuzzy_missclassification_score_teain(
+        self,
+    ) -> list[Tuple[int, float]]:
         """
         Calculate the fuzzy misclassification score for each
-        instance and sort them in descending order.
+        training instance and sort them in descending order.
 
         Returns
         -------
         list[Tuple[int, float]]
             The (index, score) pairs for each instance sorted in descending order of score.
         """
-        scores = self.find_fuzzy_missclassification_score()
+        scores = self.find_fuzzy_missclassification_score_teain()
         scores.sort(key=lambda x: x[1], reverse=True)
 
         return scores
@@ -442,7 +448,7 @@ class PStability(KNN):
         ret = list(np.where(np.array(ret) < 0, -1, ret))
         return ret
 
-    def _find_fuzzy_missclassification(self, p: int) -> float:
+    def _find_fuzzy_missclassification(self, p: int) -> Tuple[float, np.ndarray]:
         """
         Find the maximum fuzzy misclassifications for the given p value.
         In this method, the missclsification for a point is not considered as a binary value.
@@ -456,39 +462,40 @@ class PStability(KNN):
 
         Returns
         -------
-        float
-            Maximum fuzzy misclassifications found for the given p value.
+        Tuple[float, np.ndarray]
+            A tuple containing the maximum fuzzy misclassifications and the indices of the removed points.
         """
         # Fuzzy misclassification score has been calculated in the fit method
 
         # Remove the p instances with the highest score
         fuzzy_misses = 0
+        removed = np.zeros(p, dtype=int)
         for idx in range(p):
-            fuzzy_misses += self.sorted_fuzzy_missclassification_score[idx][1]
-        return fuzzy_misses
+            removed[idx] = self.sorted_fuzzy_missclassification_score_teain[idx][0]
+            fuzzy_misses += self.sorted_fuzzy_missclassification_score_teain[idx][1]
+        return fuzzy_misses, removed
 
-    def run_fuzzy_missclassification(self, max_p: int) -> list[Tuple[int, float]]:
+    def run_fuzzy_missclassification(self, p: int) -> Tuple[float, np.ndarray]:
         """
-        Find the maximum fuzzy misclassifications for each p value in the range [0, max_p].
+        Find the maximum fuzzy misclassifications of removing p points.
         In this method, the missclsification for a point is not considered as a binary value.
         We calculate a score for each point and then remove the p points with the highest score.
         The value is a much better upper bound of the misclassifications.
 
         Parameters
         ----------
-        max_p : int
+        p : int
+            Number of points to remove.
 
         Returns
         -------
-        list[Tuple[int, float]]
-            List of maximum fuzzy misclassifications found for each p value in range[0, max_p].
-
+        Tuple[float, np.ndarray]
+            A tuple containing the maximum fuzzy misclassifications and the indices of the removed points.
         """
-        self.reset()
-        self.sorted_fuzzy_missclassification_score = (
-            self.find_sorted_fuzzy_missclassification_score()
+        self.sorted_fuzzy_missclassification_score_teain = (
+            self.find_sorted_fuzzy_missclassification_score_teain()
         )
-        return self._run(range(max_p + 1), self._find_fuzzy_missclassification)
+        return self._find_fuzzy_missclassification(p)
 
     def _calculate_fuzzy_stability(self) -> float:
         """
@@ -502,4 +509,4 @@ class PStability(KNN):
         removed = np.where(self.mask_train == False)[0]
         fuzzy_misses = 0
         # Calculate the fuzzy missclassification score for each sample
-        scores = self.find_fuzzy_missclassification_score()
+        scores = self.find_fuzzy_missclassification_score_teain()

@@ -69,8 +69,12 @@ if __name__ == "__main__":
         }
 
     with measure_time("Runtime: Fuzzy misclassifications for each #p"):
-        list_fuzzy_misses = p_stability.run_fuzzy_missclassification(10)
-        logger.info(f"Fuzzy misclassifications: {list_fuzzy_misses}")
+        fuzzy_miss_score, list_fuzzy_misses = p_stability.run_fuzzy_missclassification(
+            5
+        )
+        logger.info(
+            f"Fuzzy missclassification score: {fuzzy_miss_score} with misses:{list_fuzzy_misses}"
+        )
         excel_content["Fuzzy Missclassifications"] = {
             "#p": range(len(list_fuzzy_misses)),
             "#fuzzy_misses": list_fuzzy_misses,
@@ -80,11 +84,19 @@ if __name__ == "__main__":
     prototype_selection.fit(X, y)
 
     with measure_time("Runtime: Prototype Selection"):
-        removed_prototypes, _ = prototype_selection.prototype_reduction(10)
-        logger.info(f"Removed prototypes: {removed_prototypes}")
+        result = prototype_selection.prototype_reduction(5)
+        removed_prototypes = result["removed_prototypes"]
+        total_scores = result["total_scores"]
+        base_total_score = result["base_total_score"]
+        idx_min_total_score = result["idx_min_total_score"]
+        last_idx_under_base = result["last_idx_under_base"]
+        logger.info(
+            f"Removed prototypes:\n{removed_prototypes}\nTotal scores:\n{total_scores}\nBase total score: {base_total_score}\nIndex of minimum total score: {idx_min_total_score}\nLast index under base: {last_idx_under_base}"
+        )
         excel_content["Prototype Selection"] = {
             "#prototypes": range(len(removed_prototypes)),
             "#removed_prototypes": removed_prototypes,
+            "#total_scores": total_scores,
         }
 
     save_to_excel(excel_content, "p_stability", mode="horizontal")
