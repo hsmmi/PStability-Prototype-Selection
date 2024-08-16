@@ -1,3 +1,7 @@
+import logging
+
+logging.getLogger("matplotlib").setLevel(logging.WARNING)
+
 from matplotlib import pyplot as plt
 import numpy as np
 from config import FIGURE_PATH
