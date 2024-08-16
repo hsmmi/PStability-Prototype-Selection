@@ -613,3 +613,14 @@ class KNN:
         logger.info("Nearest neighbours and enemies set.")
         logger.info("Model fitting complete.")
         return self
+
+    def accuracy(self) -> float:
+        """
+        Calculate the accuracy of the KNN model.
+
+        Returns
+        -------
+        float
+            The accuracy of the model.
+        """
+        return 1 - self.n_misses / self.n_samples

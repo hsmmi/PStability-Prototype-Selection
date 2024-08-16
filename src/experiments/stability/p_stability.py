@@ -1,5 +1,4 @@
 from src.algorithms.stability.p_stability import PStability
-from src.algorithms.stability.my_prototype_selection import PrototypeSelection
 from src.utils.timer import measure_time
 from config.log import get_logger
 from src.utils.excel import save_to_excel
@@ -19,7 +18,7 @@ if __name__ == "__main__":
         p_stability.fit(X, y)
 
     with measure_time("Runtime: Exact misclassifications for each #p"):
-        list_exact_misses = p_stability.run_exact_miss(2)
+        list_exact_misses = p_stability.run_exact_miss(3)
         logger.info(f"Maximum misclassifications: {list_exact_misses}")
         excel_content["Exact Missclassifications"] = {
             "#p": range(len(list_exact_misses)),
@@ -27,7 +26,7 @@ if __name__ == "__main__":
         }
 
     with measure_time("Runtime: Exact p for each #missclassification"):
-        list_exact_p = p_stability.run_exact_p(2)
+        list_exact_p = p_stability.run_exact_p(3)
         logger.info(f"Maximum p for stability: {list_exact_p}")
         excel_content["Exact p"] = {
             "#misses": range(len(list_exact_p)),
@@ -68,7 +67,7 @@ if __name__ == "__main__":
             "#p": list_better_upper_bound_p,
         }
 
-    with measure_time("Runtime: Fuzzy misclassifications for each #p"):
+    with measure_time("Runtime: Fuzzy misclassifications for #p"):
         fuzzy_miss_score, list_fuzzy_misses = p_stability.run_fuzzy_missclassification(
             5
         )
@@ -78,25 +77,6 @@ if __name__ == "__main__":
         excel_content["Fuzzy Missclassifications"] = {
             "#p": range(len(list_fuzzy_misses)),
             "#fuzzy_misses": list_fuzzy_misses,
-        }
-
-    prototype_selection = PrototypeSelection()
-    prototype_selection.fit(X, y)
-
-    with measure_time("Runtime: Prototype Selection"):
-        result = prototype_selection.prototype_reduction(5)
-        removed_prototypes = result["removed_prototypes"]
-        total_scores = result["total_scores"]
-        base_total_score = result["base_total_score"]
-        idx_min_total_score = result["idx_min_total_score"]
-        last_idx_under_base = result["last_idx_under_base"]
-        logger.info(
-            f"Removed prototypes:\n{removed_prototypes}\nTotal scores:\n{total_scores}\nBase total score: {base_total_score}\nIndex of minimum total score: {idx_min_total_score}\nLast index under base: {last_idx_under_base}"
-        )
-        excel_content["Prototype Selection"] = {
-            "#prototypes": range(len(removed_prototypes)),
-            "#removed_prototypes": removed_prototypes,
-            "#total_scores": total_scores,
         }
 
     save_to_excel(excel_content, "p_stability", mode="horizontal")

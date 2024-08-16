@@ -166,6 +166,7 @@ def save_to_excel(results: dict, file_name: str, mode: str = "new_sheet") -> Non
                 if mode == "horizontal":
                     # Move to the next column (add one empty column in between)
                     start_col += n_cols + 1
+                    print(n_cols)
                 elif mode == "vertical":
                     # Move to the next row (add one empty row in between)
                     start_row += n_rows + 3

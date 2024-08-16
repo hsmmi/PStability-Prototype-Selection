@@ -2,6 +2,7 @@ from typing import Tuple
 import numpy as np
 from config.log import get_logger
 from src.algorithms.stability.p_stability import PStability
+from src.utils.visualization import plot_algorithm_results
 
 logger = get_logger("mylogger")
 
@@ -73,7 +74,7 @@ class PrototypeSelection(PStability):
         """
         min_idx, min_score = -1, np.inf
         for idx in np.where(self.mask_train)[0]:
-            changed = self._remove_point(idx)
+            changed = self._remove_point(idx, update_nearest_enemy=True)
             score = self.find_total_fuzzy_missclassification_score_teain(p)
             if score < min_score:
                 min_idx, min_score = idx, score
@@ -100,6 +101,9 @@ class PrototypeSelection(PStability):
             - total_scores: list,
                 List of total fuzzy missclassification scores after
 
+            - accuracy: list,
+                List of accuracy after removing each prototype.
+
             - base_total_score: float,
                 Total fuzzy missclassification score before removing any prototype.
 
@@ -114,20 +118,22 @@ class PrototypeSelection(PStability):
         base_total_score = self.find_total_fuzzy_missclassification_score_teain(p)
         removed_prototypes = [-1]
         total_scores = [base_total_score]
+        accuracy = [self.accuracy()]
         idx_min_total_score, min_total_score = 0, base_total_score
         last_idx_under_base = 0
         size_one_class = np.sum(self.y == 1)
         list_changes = []
         for idx in range(1, size_one_class + 1):
             best_remove_idx, best_total_score_after_remove = self.find_best_prototype(p)
-            if best_total_score_after_remove < min_total_score:
+            if best_total_score_after_remove <= min_total_score:
                 min_total_score = best_total_score_after_remove
                 idx_min_total_score = idx
             if best_total_score_after_remove < base_total_score:
                 last_idx_under_base = idx
             removed_prototypes.append(best_remove_idx)
             total_scores.append(best_total_score_after_remove)
-            changes = self._remove_point(best_remove_idx)
+            changes = self._remove_point(best_remove_idx, update_nearest_enemy=True)
+            accuracy.append(self.accuracy())
             list_changes.append(changes)
 
         # put back points
@@ -137,6 +143,7 @@ class PrototypeSelection(PStability):
         ret = {
             "removed_prototypes": removed_prototypes,
             "total_scores": total_scores,
+            "accuracy": accuracy,
             "base_total_score": base_total_score,
             "idx_min_total_score": idx_min_total_score,
             "min_total_score": min_total_score,
@@ -149,3 +156,26 @@ class PrototypeSelection(PStability):
         )
 
         return ret
+
+    def prototype_selection(self, p: int) -> list[int]:
+        """
+        Select prototypes based on p-stability.
+
+        ! Use prototype_reduction to get more details.
+
+        Parameters
+        ----------
+        p : int
+            p-stability parameter to use.(For fuzzy missclassification score)
+
+        Returns
+        -------
+        list[int]
+            List of prototypes selected.
+        """
+        result = self.prototype_reduction(p)
+        removed_prototypes = result["removed_prototypes"]
+        remaining_prototypes = np.setdiff1d(
+            np.arange(self.n_samples), removed_prototypes
+        )
+        return remaining_prototypes
