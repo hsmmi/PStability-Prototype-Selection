@@ -340,6 +340,9 @@ class KNN:
             - "classify_incorrect": list[int]
                 A list of indices of instances that become misclassified after removing the friends.
 
+            - "classify_correct": list[int]
+                A list of indices of instances that become classified correctly after removing the friends.
+
             - "friends": list[int]
                 A list of indices of the nearest friends that were removed.
 
@@ -355,7 +358,6 @@ class KNN:
         changes = {}
         changes["friends"] = self.find_friends_list(idx)
         self.mask_train[changes["friends"]] = False
-
         changes["update_nearest_friends"] = {}
         if update_nearest_enemy:
             changes["update_nearest_enemies"] = {}
@@ -383,12 +385,20 @@ class KNN:
                     nearest_enemy_idx2 = self.nearest_enemy(idx2)
 
         changes["classify_incorrect"] = []
+        changes["classify_correct"] = []
         # Check if instance becomes misclassified after removing the friends of the point
         for idx2 in range(self.n_samples):
             if self.classify_correct[idx2] and self._classify(idx2) != self.y[idx2]:
                 changes["classify_incorrect"].append(idx2)
                 self.classify_correct[idx2] = False
                 self.n_misses += 1
+            if (
+                self.classify_correct[idx2] == False
+                and self._classify(idx2) == self.y[idx2]
+            ):
+                changes["classify_correct"].append(idx2)
+                self.classify_correct[idx2] = True
+                self.n_misses -= 1
         return changes
 
     def _put_back_nearest_friends(self, changed_list: dict) -> None:
@@ -403,6 +413,9 @@ class KNN:
             - "classify_incorrect": list[int]
                 A list of indices of instances that become misclassified after removing the friends.
 
+            - "classify_correct": list[int]
+                A list of indices of instances that become classified correctly after removing the friends.
+
             - "friends": list[int]
                 A list of indices of the nearest friends that were removed.
 
@@ -414,9 +427,10 @@ class KNN:
                 and the values are the number of updates for each instance. This key is included only if
         """
         neighbours_idx = changed_list["friends"]
-        for idx in changed_list["classify_incorrect"]:
-            self.classify_correct[idx] = True
-            self.n_misses -= 1
+        self.classify_correct[changed_list["classify_incorrect"]] = True
+        self.n_misses -= len(changed_list["classify_incorrect"])
+        self.classify_correct[changed_list["classify_correct"]] = False
+        self.n_misses += len(changed_list["classify_correct"])
         self.mask_train[neighbours_idx] = True
         for idx2, count in changed_list["update_nearest_friends"].items():
             self.nearest_friends_pointer[idx2] -= count
@@ -443,6 +457,9 @@ class KNN:
             - "classify_incorrect": list[int]
                 A list of indices of instances that become misclassified after removing the point.
 
+            - "classify_correct": list[int]
+                A list of indices of instances that become classified correctly after removing the point.
+
             - "update_nearest_friends": dict[int, int]
                 A dictionary where the keys are the indices of instances whose nearest friend pointers were updated,
                 and the values are the number of updates for each instance.
@@ -456,6 +473,7 @@ class KNN:
         self.mask_train[idx] = False
         changes = {}
         changes["classify_incorrect"] = []
+        changes["classify_correct"] = []
         changes["update_nearest_friends"] = {}
         changes["update_nearest_enemies"] = {}
         for idx2 in range(self.n_samples):
@@ -480,11 +498,18 @@ class KNN:
                     )
                     self.nearest_enemies_pointer[idx2] += 1
                     nearest_enemy_idx = self.nearest_enemy(idx2)
-            # Check if instance becomes misclassified after removing the point
+            # Check if instance becomes misclassified after removing the point and vice versa
             if self.classify_correct[idx2] and self._classify(idx2) != self.y[idx2]:
                 changes["classify_incorrect"].append(idx2)
                 self.classify_correct[idx2] = False
                 self.n_misses += 1
+            if (
+                self.classify_correct[idx2] == False
+                and self._classify(idx2) == self.y[idx2]
+            ):
+                changes["classify_correct"].append(idx2)
+                self.classify_correct[idx2] = True
+                self.n_misses -= 1
         return changes
 
     def _put_back_point(
@@ -506,6 +531,9 @@ class KNN:
             - "classify_incorrect": list[int]
                 A list of indices of instances that become misclassified after removing the point.
 
+            - "classify_correct": list[int]
+                A list of indices of instances that become classified correctly after removing the point.
+
             - "update_nearest_friends": dict[int, int]
                 A dictionary where the keys are the indices of instances whose nearest friend pointers were updated,
                 and the values are the number of updates for each instance.
@@ -516,9 +544,10 @@ class KNN:
                 `update_nearest_enemy` is True.
 
         """
-        for idx2 in changed["classify_incorrect"]:
-            self.classify_correct[idx2] = True
-            self.n_misses -= 1
+        self.classify_correct[changed["classify_incorrect"]] = True
+        self.n_misses -= len(changed["classify_incorrect"])
+        self.classify_correct[changed["classify_correct"]] = False
+        self.n_misses += len(changed["classify_correct"])
         self.mask_train[idx] = True
         for idx2, count in changed["update_nearest_friends"].items():
             self.nearest_friends_pointer[idx2] -= count
