@@ -20,7 +20,7 @@ class PStability(KNN):
         super().__init__(metric)
         self.sorted_fuzzy_missclassification_score_teain: list[Tuple[int, float]] = None
 
-    def _calculate_stability(self) -> int:
+    def calculate_stability(self) -> int:
         """
         Check how many samples that classified correctly at first will misclassify
         now in the current state.
@@ -30,9 +30,9 @@ class PStability(KNN):
         int
             The number of samples that were correctly classified initially but are misclassified now.
         """
-        return self.n_misses - self.n_misses_initial
+        return self.n_misses - self.n_stabilityes_initial
 
-    def convert_misses_to_p_list(self, list_max_p: list) -> list:
+    def convert_stabilityes_to_p_list(self, list_max_p: list) -> list:
         """
         Get the list which index is the number of misclassifications and the value is the maximum p value that
         results in that no more than that number of misclassifications. The returned the assoicated misclassifications
@@ -177,7 +177,7 @@ class PStability(KNN):
 
         return ret
 
-    def _find_exact_miss(self, p: int, start_index: int = 0) -> int:
+    def find_exact_miss(self, p: int, start_index: int = 0) -> int:
         """
         Check all combinations of p points to remove and determine maximum misclassifications.
 
@@ -194,7 +194,7 @@ class PStability(KNN):
             Maximum number of misclassifications found.
         """
         if p == 0:
-            return self._calculate_stability()
+            return self.calculate_stability()
         if start_index >= self.n_samples:
             return 0
         max_misses = 0
@@ -205,10 +205,10 @@ class PStability(KNN):
             disable=p < 3,
         ):
             if self.mask_train[idx]:
-                changed = self._remove_point(idx)
-                misses = self._find_exact_miss(p - 1, idx + 1)
+                changed = self.remove_point(idx, update_nearest_enemy=True)
+                misses = self.find_exact_miss(p - 1, idx + 1)
                 max_misses = max(max_misses, misses)
-                self._put_back_point(idx, changed)
+                self.put_back_point(idx, changed)
         return max_misses
 
     def run_exact_miss(self, max_p: int) -> list[int]:
@@ -226,9 +226,9 @@ class PStability(KNN):
         list[int]
             List of maximum misclassifications found for each p value in range[0, max_p].
         """
-        return self._run(range(max_p + 1), self._find_exact_miss)
+        return self._run(range(max_p + 1), self.find_exact_miss)
 
-    def _find_exact_p(self, miss: int, start_index: int = 0) -> int:
+    def find_exact_p(self, miss: int, start_index: int = 0) -> int:
         """
         Find the maximum p value that results no more than the given number of misclassifications
         in any combination of removing p points.
@@ -256,15 +256,17 @@ class PStability(KNN):
         # Assume that each instance going to be misclassified
         # with removing it's friends
         for idx in range(start_index, self.n_samples):
-            if self.mask_train[idx]:
-                changes = self._remove_nearest_friends(idx)
+            if self.classify_correct[idx]:
+                changes = self.remove_nearest_friends(idx)
                 missed = len(changes["classify_incorrect"])
                 if missed <= miss:
-                    res_max_p = self._find_exact_p(miss - missed, idx + 1)
+                    res_max_p = self.find_exact_p(
+                        miss - missed, idx + 1, update_nearest_enemy=True
+                    )
                     if res_max_p != -1:
                         max_p = min(max_p, res_max_p + len(changes["friends"]))
 
-                self._put_back_nearest_friends(changes)
+                self.put_back_nearest_friends(changes)
         if max_p == self.n_samples + 1:
             return -1
         return max_p
@@ -283,9 +285,9 @@ class PStability(KNN):
         list[int]
             List of maximum p values found for each number of allowable misclassifications in range[0, max_miss].
         """
-        return self._run(range(max_miss + 1), self._find_exact_p)
+        return self._run(range(max_miss + 1), self.find_exact_p)
 
-    def _find_lower_bound_p(self, miss: int) -> int:
+    def find_lower_bound_p(self, miss: int) -> int:
         """
         Find the lower bound of the maximum p value that results in no more
         than the given number of misclassifications in any combination of removing p points.
@@ -346,9 +348,9 @@ class PStability(KNN):
             misclassifications in range[0, max_miss].
         """
         self.number_of_friends_sorted_index = self.find_number_of_friends_sorted_index()
-        return self._run(range(max_miss + 1), self._find_lower_bound_p)
+        return self._run(range(max_miss + 1), self.find_lower_bound_p)
 
-    def _find_upper_bound_p(self, miss: int) -> int:
+    def find_upper_bound_p(self, miss: int) -> int:
         """
         Find the upper bound of the maximum p value that results in no more
         than the given number of misclassifications in any combination of removing p points.
@@ -386,9 +388,9 @@ class PStability(KNN):
             misclassifications in range[0, max_miss].
         """
         self.number_of_friends_sorted_index = self.find_number_of_friends_sorted_index()
-        return self._run(range(max_miss + 1), self._find_upper_bound_p)
+        return self._run(range(max_miss + 1), self.find_upper_bound_p)
 
-    def _find_better_upper_bound_p(self, miss: int) -> int:
+    def find_better_upper_bound_p(self, miss: int) -> int:
         """
         Find the better upper bound of the maximum p value that results in no more
         than the given number of misclassifications in any combination of removing p points.
@@ -419,14 +421,16 @@ class PStability(KNN):
                 return 0
             return len(friends) - 1
         if idx_min_friends == -1:
-            return -self.n_samples**2
-        changes = self._remove_nearest_friends(idx_min_friends)
+            return -1
+        changes = self.remove_nearest_friends(idx_min_friends)
         missed = len(changes["classify_incorrect"])
         if miss - missed >= 0:
-            rest = self._find_better_upper_bound_p(miss - missed)
+            rest = self.find_better_upper_bound_p(miss - missed)
         else:
-            rest = -self.n_samples**2
-        self._put_back_nearest_friends(changes)
+            rest = -1
+        self.put_back_nearest_friends(changes)
+        if rest == -1:
+            return -1
         return rest + len(changes["friends"])
 
     def run_better_upper_bound_p(self, max_p: int) -> list[int]:
@@ -444,11 +448,11 @@ class PStability(KNN):
         list[int]
             List of maximum misclassifications found for each p value in range[0, max_p].
         """
-        ret = self._run(range(max_p + 1), self._find_better_upper_bound_p)
+        ret = self._run(range(max_p + 1), self.find_better_upper_bound_p)
         ret = list(np.where(np.array(ret) < 0, -1, ret))
         return ret
 
-    def _find_fuzzy_missclassification(self, p: int) -> Tuple[float, np.ndarray]:
+    def find_fuzzy_missclassification(self, p: int) -> Tuple[float, np.ndarray]:
         """
         Find the maximum fuzzy misclassifications for the given p value.
         In this method, the missclsification for a point is not considered as a binary value.
@@ -495,18 +499,4 @@ class PStability(KNN):
         self.sorted_fuzzy_missclassification_score_teain = (
             self.find_sorted_fuzzy_missclassification_score_teain()
         )
-        return self._find_fuzzy_missclassification(p)
-
-    def _calculate_fuzzy_stability(self) -> float:
-        """
-        Calculate the fuzzy stability of the model.
-
-        Returns
-        -------
-        float
-            The fuzzy stability of the model.
-        """
-        removed = np.where(self.mask_train == False)[0]
-        fuzzy_misses = 0
-        # Calculate the fuzzy missclassification score for each sample
-        scores = self.find_fuzzy_missclassification_score_teain()
+        return self.find_fuzzy_missclassification(p)

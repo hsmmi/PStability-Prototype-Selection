@@ -319,7 +319,7 @@ class KNN:
             key=lambda x: x[1],
         )
 
-    def _remove_nearest_friends(
+    def remove_nearest_friends(
         self, idx: int, update_nearest_enemy: bool = False
     ) -> dict:
         """
@@ -401,7 +401,7 @@ class KNN:
                 self.n_misses -= 1
         return changes
 
-    def _put_back_nearest_friends(self, changed_list: dict) -> None:
+    def put_back_nearest_friends(self, changed_list: dict) -> None:
         """
         Put back the nearest friends of a point that were removed.
 
@@ -438,7 +438,7 @@ class KNN:
             for idx2, count in changed_list["update_nearest_enemies"].items():
                 self.nearest_enemies_pointer[idx2] -= count
 
-    def _remove_point(self, idx: int, update_nearest_enemy: bool = False) -> dict:
+    def remove_point(self, idx: int, update_nearest_enemy: bool = False) -> dict:
         """
         Remove a point from the mask and update the nearest pointer for other instances.
 
@@ -512,7 +512,7 @@ class KNN:
                 self.n_misses -= 1
         return changes
 
-    def _put_back_point(
+    def put_back_point(
         self,
         idx: int,
         changed: Tuple[dict[int, int], dict[int, int]],

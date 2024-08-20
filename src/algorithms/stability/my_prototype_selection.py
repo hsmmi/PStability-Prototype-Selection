@@ -74,11 +74,11 @@ class PrototypeSelection(PStability):
         """
         min_idx, min_score = -1, np.inf
         for idx in np.where(self.mask_train)[0]:
-            changed = self._remove_point(idx, update_nearest_enemy=True)
+            changed = self.remove_point(idx, update_nearest_enemy=True)
             score = self.find_total_fuzzy_missclassification_score_teain(p)
             if score < min_score:
                 min_idx, min_score = idx, score
-            self._put_back_point(idx, changed)
+            self.put_back_point(idx, changed)
         return min_idx, min_score
 
     def prototype_reduction(self, p: int) -> dict:
@@ -132,13 +132,13 @@ class PrototypeSelection(PStability):
                 last_idx_under_base = idx
             removed_prototypes.append(best_remove_idx)
             total_scores.append(best_total_score_after_remove)
-            changes = self._remove_point(best_remove_idx, update_nearest_enemy=True)
+            changes = self.remove_point(best_remove_idx, update_nearest_enemy=True)
             accuracy.append(self.accuracy())
             list_changes.append(changes)
 
         # put back points
         for idx in range(size_one_class, 0, -1):
-            self._put_back_point(removed_prototypes[idx], list_changes[idx - 1])
+            self.put_back_point(removed_prototypes[idx], list_changes[idx - 1])
 
         ret = {
             "removed_prototypes": removed_prototypes,
