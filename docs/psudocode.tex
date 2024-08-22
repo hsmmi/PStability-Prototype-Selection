@@ -1,0 +1,43 @@
+\documentclass{article}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+
+\begin{document}
+
+\renewcommand{\thealgorithm}{\thesubsubsection.\arabic{algorithm}}
+
+% 4. Methodology
+\setcounter{section}{3}
+\section{Methodology}
+
+% 4.1 Find Exact P
+\subsection{Find Exact P}
+
+\begin{algorithm}
+    \caption{Find Exact Miss}
+    \begin{algorithmic}[1] % The number "1" enables line numbering
+    
+    \STATE \textbf{Input:} Integer $p$, Integer $start\_index = 0$
+    \STATE \textbf{Output:} Integer $max\_misses$
+    
+    \IF{$p = 0$}
+        \RETURN \textbf{calculate\_stability()}
+    \ENDIF
+    
+    \STATE $max\_misses \gets 0$
+    
+    \FOR{$idx$ from $start\_index$ to $n\_samples - 1$}
+        \STATE $changed \gets$ \textbf{remove\_point}($idx$, update\_nearest\_enemy=True)
+        \STATE $misses \gets$ \textbf{find\_exact\_miss}($p - 1$, $idx + 1$)
+        \STATE $max\_misses \gets \max(max\_misses, misses)$
+        \STATE \textbf{put\_back\_point}($idx$, $changed$)
+    \ENDFOR
+    
+    \RETURN $max\_misses$
+    
+    \end{algorithmic}
+    \end{algorithm}
+    
+
+
+\end{document}

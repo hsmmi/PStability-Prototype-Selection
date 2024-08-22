@@ -1,3 +1,4 @@
+import numpy as np
 from src.algorithms.stability.p_stability import PStability
 from src.utils.timer import measure_time
 from config.log import get_logger
@@ -17,66 +18,106 @@ if __name__ == "__main__":
     with measure_time("fitting"):
         p_stability.fit(X, y)
 
-    with measure_time("Runtime: Exact misclassifications for each #p"):
-        list_exact_misses = p_stability.run_exact_miss(3)
-        logger.info(f"Maximum misclassifications: {list_exact_misses}")
-        excel_content["Exact Missclassifications"] = {
-            "#p": range(len(list_exact_misses)),
-            "#misses": list_exact_misses,
-        }
-
-    with measure_time("Runtime: Exact p for each #missclassification"):
-        list_exact_p = p_stability.run_exact_p(3)
-        logger.info(f"Maximum p for stability: {list_exact_p}")
+    with measure_time("Runtime: Exact p for each Stability"):
+        list_stability = [0, 1, 2]
+        list_exact_p = p_stability.run_exact_p(list_stability)
+        logger.info(f"Exact p: {list_exact_p}")
         excel_content["Exact p"] = {
-            "#misses": range(len(list_exact_p)),
-            "#p": list_exact_p,
+            "stability": list_stability,
+            "p": list_exact_p,
         }
 
-    list_dual_exact_p = p_stability.convert_misses_to_p_list(list_exact_p)
-    logger.info(
-        "List of exact missclassifications corresponding to p with conversion: ",
-        [(p, misses) for p, misses in enumerate(list_dual_exact_p)],
-    )
-    excel_content["Dual Exact p"] = {
-        "#p": range(len(list_dual_exact_p)),
-        "#misses": list_dual_exact_p,
-    }
-
-    with measure_time("Runtime: Lower bound p for each #missclassification"):
-        list_lower_bound_p = p_stability.run_lower_bound_p(20)
+    with measure_time("Runtime: Lower bound p for each stability"):
+        list_stability = list(range(21))
+        list_lower_bound_p = p_stability.run_lower_bound_p(list_stability)
         logger.info(f"Lower bound p for stability: {list_lower_bound_p}")
         excel_content["Lower Bound p"] = {
-            "#misses": range(len(list_lower_bound_p)),
-            "#p": list_lower_bound_p,
+            "stability": list_stability,
+            "p": list_lower_bound_p,
         }
 
-    with measure_time("Runtime: Upper bound p for each #missclassification"):
-        list_upper_bound_p = p_stability.run_upper_bound_p(20)
-        logger.info(f"Upper bound p for stability: {list_upper_bound_p}")
-        excel_content["Upper Bound p"] = {
-            "#misses": range(len(list_upper_bound_p)),
-            "#p": list_upper_bound_p,
-        }
-
-    with measure_time("Runtime: Better upper bound p for each #missclassification"):
-        list_better_upper_bound_p = p_stability.run_better_upper_bound_p(20)
+    with measure_time("Runtime: Better upper bound p for each stability"):
+        list_stability = list(range(21))
+        list_better_upper_bound_p = p_stability.run_better_upper_bound_p(list_stability)
         logger.info(f"Better upper bound p for stability: {list_better_upper_bound_p}")
         excel_content["Better Upper Bound p"] = {
-            "#misses": range(len(list_better_upper_bound_p)),
-            "#p": list_better_upper_bound_p,
+            "stability": list_stability,
+            "p": list_better_upper_bound_p,
         }
 
-    with measure_time("Runtime: Fuzzy misclassifications for #p"):
-        fuzzy_miss_score, list_fuzzy_misses = p_stability.run_fuzzy_missclassification(
-            5
+    with measure_time("Runtime: Upper bound p for each stability"):
+        list_stability = list(range(21))
+        list_upper_bound_p = p_stability.run_upper_bound_p(list_stability)
+        logger.info(f"Upper bound p for stability: {list_upper_bound_p}")
+        excel_content["Upper Bound p"] = {
+            "stability": list_stability,
+            "p": list_upper_bound_p,
+        }
+
+    with measure_time("Runtime: Exact Stability for each p"):
+        list_p = [0, 1, 2]
+        list_exact_stability = p_stability.run_exact_stability(list_p)
+        logger.info(f"Exact Stability: {list_exact_stability}")
+        excel_content["Exact MissclasStabilityifications"] = {
+            "p": list_p,
+            "stability": list_exact_stability,
+        }
+
+    with measure_time("Runtime: Lower bound stability for each p"):
+        list_p = list(range(101))
+        list_lower_bound_stability = p_stability.run_lower_bound_stability(list_p)
+        logger.info(f"Lower bound stability for p: {list_lower_bound_stability}")
+        excel_content["Lower Bound Stability"] = {
+            "p": list_p,
+            "stability": list_lower_bound_stability,
+        }
+
+    with measure_time("Runtime: Better lower bound stability for each p"):
+        list_p = list(range(101))
+        list_better_lower_bound_stability = (
+            p_stability.run_better_lower_bound_stability(list_p)
         )
         logger.info(
-            f"Fuzzy missclassification score: {fuzzy_miss_score} with misses:{list_fuzzy_misses}"
+            f"Better lower bound stability for p: {list_better_lower_bound_stability}"
         )
-        excel_content["Fuzzy Missclassifications"] = {
-            "#p": range(len(list_fuzzy_misses)),
-            "#fuzzy_misses": list_fuzzy_misses,
+        excel_content["Better Lower Bound Stability"] = {
+            "p": list_p,
+            "stability": list_better_lower_bound_stability,
+        }
+
+    with measure_time("Runtime: Upper bound stability for each p"):
+        list_p = list(range(101))
+        list_upper_bound_stability = p_stability.run_upper_bound_stability(list_p)
+        logger.info(f"Upper bound stability for p: {list_upper_bound_stability}")
+        excel_content["Upper Bound Stability"] = {
+            "p": list_p,
+            "stability": list_upper_bound_stability,
+        }
+
+    with measure_time("Runtime: Crisped Stability for p"):
+        list_p = list(range(101))
+        list_crisped_stability = p_stability.run_crisped_stability(list_p)
+        list_crisped_stability_score = [tuple[0] for tuple in list_crisped_stability]
+        logger.info(
+            f"Crisped stabilityclassification score: {list_crisped_stability_score}"
+        )
+        excel_content["Crisped Stability(lower)"] = {
+            "p": list_p,
+            "Crisped Miss": list_crisped_stability_score,
+        }
+
+    with measure_time("Runtime: Fuzzy Stability for p"):
+        list_p = list(range(101))
+        list_fuzzy_stability = p_stability.run_fuzzy_stability(list_p)
+        list_fuzzy_stability_score = [
+            round(tuple[0], 2) for tuple in list_fuzzy_stability
+        ]
+        logger.info(
+            f"Fuzzy stabilityclassification score: {list_fuzzy_stability_score}"
+        )
+        excel_content["Fuzzy Stability(upper)"] = {
+            "p": list_p,
+            "Fuzzy Stability": list_fuzzy_stability_score,
         }
 
     save_to_excel(excel_content, "p_stability", mode="horizontal")
