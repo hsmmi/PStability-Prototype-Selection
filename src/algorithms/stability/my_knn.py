@@ -60,7 +60,7 @@ class KNN:
         """
         pointer = self.nearest_friends_pointer[idx]
         if pointer >= len(self.nearest_friends[idx]):
-            return self.n_samples + 1
+            return self.n_samples - 1
         return self.nearest_friends[idx][pointer]
 
     def nearest_friend(self, idx: int) -> int:
@@ -78,8 +78,10 @@ class KNN:
             Index of the nearest friend.
         """
         pointer = self.nearest_friend_index(idx)
-        if pointer == self.n_samples + 1:
-            return -1
+        # if out of nearest list
+        if pointer == self.n_samples - 1:
+            # return index out of sample
+            return self.n_samples
         return self.nearest_neighbours[idx][pointer]
 
     def nearest_enemy_index(self, idx: int) -> int:
@@ -98,7 +100,7 @@ class KNN:
         """
         pointer = self.nearest_enemies_pointer[idx]
         if pointer >= len(self.nearest_enemies[idx]):
-            return self.n_samples + 1
+            return self.n_samples - 1
         return self.nearest_enemies[idx][pointer]
 
     def nearest_enemy(self, idx: int) -> int:
@@ -116,8 +118,10 @@ class KNN:
             Index of the nearest enemy.
         """
         pointer = self.nearest_enemy_index(idx)
-        if pointer == self.n_samples + 1:
-            return -1
+        # if out of nearest list
+        if pointer == self.n_samples - 1:
+            # return index out of sample
+            return self.n_samples
         return self.nearest_neighbours[idx][pointer]
 
     def nearest_neighbour(self, idx: int) -> Tuple[int, bool]:
@@ -137,12 +141,6 @@ class KNN:
         """
         nearest_friend_idx = self.nearest_friend_index(idx)
         nearest_enemy_idx = self.nearest_enemy_index(idx)
-
-        # if there is no nearest friend i.e. index is out of bounds (-1)
-        if nearest_friend_idx == -1:
-            return nearest_enemy_idx, False
-        if nearest_enemy_idx == -1:
-            return nearest_friend_idx, True
 
         if nearest_friend_idx < nearest_enemy_idx:
             return self.nearest_friend(idx), True
@@ -164,6 +162,9 @@ class KNN:
             The predicted class of the instance.
         """
         nearest_neighbor_idx, _ = self.nearest_neighbour(idx)
+        # If there is no neaighbor return -1 unknown
+        if nearest_neighbor_idx >= self.n_samples:
+            return -1
         return self.y[nearest_neighbor_idx]
 
     def r_nearest_neighbour(self, idx: int, r: int) -> int:
@@ -284,7 +285,7 @@ class KNN:
         list[int]
             The list of friends of the instance.
         """
-        min_friends, min_idx = self.n_samples + 1, -1
+        min_friends, min_idx = self.n_samples, -1
         min_friends_list = []
         for idx in range(start_index, self.n_samples):
             if self.classify_correct[idx]:
@@ -364,9 +365,13 @@ class KNN:
         for idx2 in range(self.n_samples):
             nearest_friend_idx2 = self.nearest_friend(idx2)
             while (
-                nearest_friend_idx2 in changes["friends"]
-                or (self.mask_train[nearest_friend_idx2] == False)
-            ) and nearest_friend_idx2 != -1:
+                nearest_friend_idx2 < self.n_samples
+                and (
+                    nearest_friend_idx2 in changes["friends"]
+                    or (self.mask_train[nearest_friend_idx2] == False)
+                )
+                and nearest_friend_idx2 != -1
+            ):
                 changes["update_nearest_friends"][idx2] = (
                     changes["update_nearest_friends"].get(idx2, 0) + 1
                 )
@@ -374,10 +379,10 @@ class KNN:
                 nearest_friend_idx2 = self.nearest_friend(idx2)
             if update_nearest_enemy:
                 nearest_enemy_idx2 = self.nearest_enemy(idx2)
-                while (
+                while nearest_enemy_idx2 < self.n_samples and (
                     nearest_enemy_idx2 in changes["friends"]
                     or self.mask_train[nearest_enemy_idx2] == False
-                ) and nearest_enemy_idx2 != -1:
+                ):
                     changes["update_nearest_enemies"][idx2] = (
                         changes["update_nearest_enemies"].get(idx2, 0) + 1
                     )
@@ -482,27 +487,27 @@ class KNN:
         changes["update_nearest_friends"] = {}
         changes["update_nearest_enemies"] = {}
         for idx2 in range(self.n_samples):
-            nearest_friend_idx = self.nearest_friend(idx2)
-            while (
-                nearest_friend_idx == idx
-                or self.mask_train[nearest_friend_idx] == False
-            ) and nearest_friend_idx != -1:
+            nearest_friend_idx2 = self.nearest_friend(idx2)
+            while nearest_friend_idx2 < self.n_samples and (
+                nearest_friend_idx2 == idx
+                or self.mask_train[nearest_friend_idx2] == False
+            ):
                 changes["update_nearest_friends"][idx2] = (
                     changes["update_nearest_friends"].get(idx2, 0) + 1
                 )
                 self.nearest_friends_pointer[idx2] += 1
-                nearest_friend_idx = self.nearest_friend(idx2)
+                nearest_friend_idx2 = self.nearest_friend(idx2)
             if update_nearest_enemy:
-                nearest_enemy_idx = self.nearest_enemy(idx2)
-                while (
-                    nearest_enemy_idx == idx
-                    or self.mask_train[nearest_enemy_idx] == False
-                ) and nearest_enemy_idx != -1:
+                nearest_enemy_idx2 = self.nearest_enemy(idx2)
+                while nearest_enemy_idx2 < self.n_samples and (
+                    nearest_enemy_idx2 == idx
+                    or self.mask_train[nearest_enemy_idx2] == False
+                ):
                     changes["update_nearest_enemies"][idx2] = (
                         changes["update_nearest_enemies"].get(idx2, 0) + 1
                     )
                     self.nearest_enemies_pointer[idx2] += 1
-                    nearest_enemy_idx = self.nearest_enemy(idx2)
+                    nearest_enemy_idx2 = self.nearest_enemy(idx2)
             # Check if instance becomes misclassified after removing the point and vice versa
             if self.classify_correct[idx2] and self._classify(idx2) != self.y[idx2]:
                 changes["classify_incorrect"].append(idx2)

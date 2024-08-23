@@ -23,6 +23,9 @@ if __name__ == "__main__":
         X, y = load_data(DATASET)
 
         prototype_selection = PrototypeSelection()
+
+        # K-Fold
+
         prototype_selection.fit(X, y)
 
         with measure_time("Runtime: Prototype Selection for " + DATASET):

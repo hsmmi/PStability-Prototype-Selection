@@ -659,6 +659,9 @@ class PStability(KNN):
 
         stability_changed = len(changes["classify_incorrect"])
 
+        if p == 22:
+            a = 1
+
         rest = self.find_better_lower_bound_stability(p - len(friends))
 
         self.put_back_nearest_friends(changes)
