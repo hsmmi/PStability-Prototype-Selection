@@ -239,7 +239,12 @@ class PStability(KNN):
         max_p = self.n_samples + 1
         # Assume that each instance going to be misclassified
         # with removing it's friends
-        for idx in range(start_index, self.n_samples):
+        for idx in tqdm(
+            range(start_index, self.n_samples),
+            desc=f"Checking stability={stability}",
+            leave=False,
+            disable=stability < 3,
+        ):
             if self.classify_correct[idx]:
                 changes = self.remove_nearest_friends(idx, update_nearest_enemy=True)
                 change_stability = len(changes["classify_incorrect"])
@@ -291,6 +296,65 @@ class PStability(KNN):
         """
         if stability == 0:
             return self.number_of_friends_sorted_index[0][1] - 1
+        if stability >= self.n_samples - self.n_misses:
+            return self.n_samples
+        number_of_friends_sorted_classes = [[]]
+        for class_label in self.classes:
+            # Select instances of the class in the order of increasing number of friends
+            number_of_friends_sorted_index_class = [
+                (idx, n_friends)
+                for (idx, n_friends) in self.number_of_friends_sorted_index
+                if self.y[idx] == class_label
+            ]
+            number_of_friends_sorted = [
+                number_of_friends_sorted_index_class[i][1]
+                for i in range(len(number_of_friends_sorted_index_class))
+            ]
+            number_of_friends_sorted_classes.append(number_of_friends_sorted)
+
+        # DP[i][j] =  minimum p possible by missing j instance from the first i classes.
+        dp = [[float("inf")] * (stability + 2) for _ in range(self.n_classes + 1)]
+        dp[0][0] = 0
+        for i in range(1, self.n_classes + 1):
+            dp[i][0] = 0
+            for j in range(1, stability + 2):
+                for x in range(min(j, stability + 1) + 1):
+                    # Select x instance from class i to miss for j total miss
+                    # if next instance going to miss
+                    if (
+                        number_of_friends_sorted_classes[i][x]
+                        == number_of_friends_sorted_classes[i][x - 1]
+                    ):
+                        continue
+
+                    dp[i][j] = min(
+                        dp[i][j],
+                        dp[i - 1][j - x] + number_of_friends_sorted_classes[i][x - 1],
+                    )
+
+        return int(dp[self.n_classes][stability + 1] - 1)
+
+    def find_lower_bound_p_2(self, stability: int) -> int:
+        """
+        Find the lower bound of the maximum p value that results in no more
+        than the given number of misclassifications in any combination of removing p points.
+        Assume that the friends of each instance is completely on the rest of the
+        instances after that in increasing friends size order in each class.
+        And check for each class because to have a lower bound, removed instances should be
+        from the same class.
+
+        Parameters
+        ----------
+        stability : int
+            The maximum number of allowable misclassifications.
+
+        Returns
+        -------
+        int
+            The lower bound of the maximum p value found for the given number of allowable misclassifications.
+        """
+        if stability == 0:
+            return self.number_of_friends_sorted_index[0][1] - 1
         max_p = self.n_samples + 1
         for class_label in self.classes:
             # Select instances of the class in the order of increasing number of friends
@@ -311,6 +375,7 @@ class PStability(KNN):
                     max_p,
                     number_of_friends_sorted_index_class[stability][1] - 1,
                 )
+
         if max_p == self.n_samples + 1:
             return -1
         return max_p
@@ -335,6 +400,42 @@ class PStability(KNN):
         return self._run(list_stability, self.find_lower_bound_p)
 
     def find_upper_bound_stability(self, p: int) -> int:
+        """
+        Find the upper bound of stability for the given p value.
+        Assume that the friends of each instance is completely on the rest of the
+        instances after that instance in increasing friends size order in each class.
+        """
+        number_of_friends_sorted_classes = [[]]
+        for class_label in self.classes:
+            # Select instances of the class in the order of increasing number of friends
+            number_of_friends_sorted_index_class = [
+                (idx, n_friends)
+                for (idx, n_friends) in self.number_of_friends_sorted_index
+                if self.y[idx] == class_label
+            ]
+            number_of_friends_sorted = [
+                number_of_friends_sorted_index_class[i][1]
+                for i in range(len(number_of_friends_sorted_index_class))
+            ]
+            number_of_friends_sorted_classes.append(number_of_friends_sorted)
+
+        # DP[i][j] =  Maximum stability possible by remove j instance from the first i classes.
+        dp = [[float("-inf")] * (p + 1) for _ in range(self.n_classes + 1)]
+        dp[0][0] = 0
+        for i in range(1, self.n_classes + 1):
+            dp[i][0] = 0
+            for j in range(1, p + 1):
+                class_miss = 0
+                for x in range(min(j, p) + 1):
+                    if number_of_friends_sorted_classes[i][class_miss] <= x:
+                        if class_miss + 1 < len(number_of_friends_sorted_classes[i]):
+                            class_miss += 1
+                    # Remove x sample from class i of j total remove
+                    dp[i][j] = max(dp[i][j], dp[i - 1][j - x] + class_miss)
+
+        return int(dp[self.n_classes][p])
+
+    def find_upper_bound_stability2(self, p: int) -> int:
         """
         Find the upper bound of stability for the given p value.
         Assume that the friends of each instance is completely on the rest of the

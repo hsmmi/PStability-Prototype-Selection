@@ -1,7 +1,6 @@
 import numpy as np
 from sklearn.metrics import pairwise_distances
 from sklearn.neighbors import KDTree, KNeighborsClassifier
-import random
 from src.algorithms.prototype_selection.base import BaseAlgorithm
 
 

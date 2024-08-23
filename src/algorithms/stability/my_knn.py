@@ -396,6 +396,11 @@ class KNN:
                 self.classify_correct[idx2] == False
                 and self._classify(idx2) == self.y[idx2]
             ):
+                if update_nearest_enemy == False:
+                    logger.error(
+                        "Instance classified incorrectly and"
+                        "becomes correct when updating nearest enemy is False."
+                    )
                 changes["classify_correct"].append(idx2)
                 self.classify_correct[idx2] = True
                 self.n_misses -= 1
@@ -507,6 +512,11 @@ class KNN:
                 self.classify_correct[idx2] == False
                 and self._classify(idx2) == self.y[idx2]
             ):
+                if update_nearest_enemy == False:
+                    logger.error(
+                        "Instance classified incorrectly and"
+                        "becomes correct when updating nearest enemy is False."
+                    )
                 changes["classify_correct"].append(idx2)
                 self.classify_correct[idx2] = True
                 self.n_misses -= 1
