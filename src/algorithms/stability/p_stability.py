@@ -161,57 +161,6 @@ class PStability(KNN):
 
         return ret
 
-    def find_exact_stability(self, p: int, start_index: int = 0) -> int:
-        """
-        Check all combinations of p points to remove and determine maximum misclassifications.
-
-        Parameters
-        ----------
-        p : int
-            Number of points to remove.
-        start_index : int, optional
-            Starting index for combinations, by default 0.
-
-        Returns
-        -------
-        int
-            Maximum number of misclassifications found.
-        """
-        if p == 0:
-            return self.calculate_stability()
-        if start_index >= self.n_samples:
-            return 0
-        max_misses = 0
-        for idx in tqdm(
-            range(start_index, self.n_samples),
-            desc=f"Checking p={p}",
-            leave=False,
-            disable=p < 3,
-        ):
-            if self.mask_train[idx]:
-                changed = self.remove_point(idx, update_nearest_enemy=True)
-                misses = self.find_exact_stability(p - 1, idx + 1)
-                max_misses = max(max_misses, misses)
-                self.put_back_point(idx, changed)
-        return max_misses
-
-    def run_exact_stability(self, p_list: list[int]) -> list[int]:
-        """
-        Run the exact maximum misclassifications check for each p value in the range [0, max_p].
-        By checking all possible combinations of removing p points.
-
-        Parameters
-        ----------
-        p_list : list[int]
-            List of p values to check.
-
-        Returns
-        -------
-        list[int]
-            List of maximum misclassifications found for each p value in range[0, max_p].
-        """
-        return self._run(list(p_list), self.find_exact_stability)
-
     def find_exact_p(self, stability: int, start_index: int = 0) -> int:
         """
         Find the maximum p value that results no more than the given number of misclassifications
@@ -247,7 +196,9 @@ class PStability(KNN):
         ):
             if self.classify_correct[idx]:
                 changes = self.remove_nearest_friends(idx, update_nearest_enemy=True)
-                change_stability = len(changes["classify_incorrect"])
+                change_stability = len(changes["classify_incorrect"]) - len(
+                    changes["classify_correct"]
+                )
                 if change_stability <= stability:
                     res_max_p = self.find_exact_p(stability - change_stability, idx + 1)
                     if res_max_p != -1:
@@ -399,6 +350,272 @@ class PStability(KNN):
         self.number_of_friends_sorted_index = self.find_number_of_friends_sorted_index()
         return self._run(list_stability, self.find_lower_bound_p)
 
+    def find_better_upper_bound_p(self, stability: int) -> int:
+        """
+        Find the better upper bound of the maximum p value that results in no more
+        than the given number of stability in any combination of removing p points.
+        Assume that the friends of each instance can be among the rest of the instances.
+        And we will remove it's friends from list of other instances friends.
+        In each step, we greedily select the instance with the minimum number of friends
+        and remove it's friends and update the friends of other instances.
+
+        Parameters
+        ----------
+        stability : int
+            The maximum number of allowable misclassifications.
+
+        Returns
+        -------
+        int
+            The better upper bound of p value found for the given stability.
+        """
+        # Greedily select the instance with the minimum number of friends
+        idx_min_friends, friends = self.find_instance_with_min_friends()
+        if stability < 0:
+            logger.warning(
+                f"Value of stability is negative: {stability}. In find_better_upper_bound_p."
+            )
+        if stability == 0:
+            if idx_min_friends == -1:
+                return 0
+            return len(friends) - 1
+        if idx_min_friends == -1:
+            return -1
+        changes = self.remove_nearest_friends(
+            idx_min_friends, update_nearest_enemy=True
+        )
+        stability_changed = len(changes["classify_incorrect"]) - len(
+            changes["classify_correct"]
+        )
+        if stability - stability_changed >= 0:
+            rest = self.find_better_upper_bound_p(stability - stability_changed)
+        else:
+            rest = -1
+
+        self.put_back_nearest_friends(changes)
+
+        if rest == -1:
+            return -1
+        return rest + len(changes["friends"])
+
+    def run_better_upper_bound_p(self, list_stability: int) -> list[int]:
+        """
+        Run the better upper bound of the maximum p value that results in no more
+        than the given number of stability in any combination of removing p points.
+
+        Parameters
+        ----------
+        list_stability : int
+            List of stability values to check.
+
+        Returns
+        -------
+        list[int]
+            List of better upper bound p values found for each stability value in list_stability.
+        """
+        ret = self._run(list_stability, self.find_better_upper_bound_p)
+        ret = list(np.where(np.array(ret) < 0, -1, ret))
+        return ret
+
+    def find_upper_bound_p(self, stability: int) -> int:
+        """
+        Find the upper bound of the maximum p value that results in no more
+        than the given number of misclassifications in any combination of removing p points.
+        Assume that the friends of each instance is UNIQELY among the rest of the instances.
+
+        Parameters
+        ----------
+        stability : int
+            The maximum number of allowable change in misclassifications.
+
+        Returns
+        -------
+        int
+            The upper bound of the maximum p value found for the given stability.
+        """
+        upper_bound = 0
+        for i in range(stability + 1):
+            upper_bound += self.number_of_friends_sorted_index[i][1]
+        return upper_bound - 1
+
+    def run_upper_bound_p(self, list_stability: list[int]) -> list[int]:
+        """
+        Find the upper bound of the maximum p value that results in no more
+        than the given number of misclassifications.
+        Parameters
+        ----------
+        list_stability : list[int]
+            The list of stability to check for upper bound p
+
+        Returns
+        -------
+        list[int]
+            List of upper bound p values found for each number of allowable
+            misclassifications in list_stability
+        """
+        self.number_of_friends_sorted_index = self.find_number_of_friends_sorted_index()
+        return self._run(list_stability, self.find_upper_bound_p)
+
+    def find_exact_stability(self, p: int, start_index: int = 0) -> int:
+        """
+        Check all combinations of p points to remove and determine maximum misclassifications.
+
+        Parameters
+        ----------
+        p : int
+            Number of points to remove.
+        start_index : int, optional
+            Starting index for combinations, by default 0.
+
+        Returns
+        -------
+        int
+            Maximum number of misclassifications found.
+        """
+        if p == 0:
+            return self.calculate_stability()
+        if start_index >= self.n_samples:
+            return 0
+        max_misses = 0
+        for idx in tqdm(
+            range(start_index, self.n_samples),
+            desc=f"Checking p={p}",
+            leave=False,
+            disable=p < 3,
+        ):
+            if self.mask_train[idx]:
+                changed = self.remove_point(idx, update_nearest_enemy=True)
+                misses = self.find_exact_stability(p - 1, idx + 1)
+                max_misses = max(max_misses, misses)
+                self.put_back_point(idx, changed)
+        return max_misses
+
+    def run_exact_stability(self, p_list: list[int]) -> list[int]:
+        """
+        Run the exact maximum misclassifications check for each p value in the range [0, max_p].
+        By checking all possible combinations of removing p points.
+
+        Parameters
+        ----------
+        p_list : list[int]
+            List of p values to check.
+
+        Returns
+        -------
+        list[int]
+            List of maximum misclassifications found for each p value in range[0, max_p].
+        """
+        return self._run(list(p_list), self.find_exact_stability)
+
+    def find_lower_bound_stability(self, p: int) -> int:
+        """
+        Find the lower bound of the stability that results of removing
+        any combination of p points.
+        Assume that the friends of each instance is UNIQELY among the
+        rest of the instances.
+
+        Parameters
+        ----------
+        p : int
+            The number of points to remove.
+
+        Returns
+        -------
+        int
+            The lower bound of the stability found for the given p.
+        """
+        lower_bound = 0
+        sum_friends = 0
+        for i in range(self.n_samples):
+            sum_friends += self.number_of_friends_sorted_index[i][1]
+            if sum_friends > p:
+                break
+            lower_bound = i + 1
+        return lower_bound
+
+    def run_lower_bound_stability(self, list_p: list[int]) -> list[int]:
+        """
+        Find the lower bound of stability for each p value in the list.
+
+        Parameters
+        ----------
+        list_p : list[int]
+            The list of stability to check for lower bound p
+
+        Returns
+        -------
+        list[int]
+            List of lower bound stability values found for each p value in list_p
+        """
+        self.number_of_friends_sorted_index = self.find_number_of_friends_sorted_index()
+        return self._run(list_p, self.find_lower_bound_stability)
+
+    def find_better_lower_bound_stability(self, p: int) -> int:
+        """
+        Find the better lower bound of the stability that results of removing
+        any combination of p points.
+        Assume that the friends of each instance can be among the rest of the instances.
+        And we will remove it's friends from list of other instances friends.
+        In each step, we greedily select the instance with the minimum number of friends
+        and remove it's friends and update the friends of other instances.
+
+        Parameters
+        ----------
+        p : int
+            The number of points to remove.
+
+        Returns
+        -------
+        int
+            The better lower bound of the maximum p value found for the given number
+            of allowable misclassifications.
+        """
+        # Greedily select the instance with the minimum number of friends
+        idx_min_friends, friends = self.find_instance_with_min_friends()
+
+        if p < 0:
+            logger.warning(
+                f"Value of p is negative: {p}. In find_better_lower_bound_p."
+            )
+        if idx_min_friends == -1:
+            return -1
+
+        if p < len(friends):
+            return 0
+
+        changes = self.remove_nearest_friends(
+            idx_min_friends, update_nearest_enemy=True
+        )
+
+        stability_changed = len(changes["classify_incorrect"]) - len(
+            changes["classify_correct"]
+        )
+
+        rest = self.find_better_lower_bound_stability(p - len(friends))
+
+        self.put_back_nearest_friends(changes)
+
+        if rest == -1:
+            return -1
+        return rest + stability_changed
+
+    def run_better_lower_bound_stability(self, list_p: int) -> list[int]:
+        """
+        Run the better lower bound for stability for each p value in the list.
+
+        Parameter
+        ----------
+        list_p : int
+            List of p values to check.
+
+        Returns
+        -------
+        list[int]
+            List of better lower bound stability values found for each p value in list_p.
+        """
+        ret = self._run(list_p, self.find_better_lower_bound_stability)
+        return ret
+
     def find_upper_bound_stability(self, p: int) -> int:
         """
         Find the upper bound of stability for the given p value.
@@ -476,217 +693,6 @@ class PStability(KNN):
         """
         self.number_of_friends_sorted_index = self.find_number_of_friends_sorted_index()
         return self._run(list_p, self.find_upper_bound_stability)
-
-    def find_upper_bound_p(self, stability: int) -> int:
-        """
-        Find the upper bound of the maximum p value that results in no more
-        than the given number of misclassifications in any combination of removing p points.
-        Assume that the friends of each instance is UNIQELY among the rest of the instances.
-
-        Parameters
-        ----------
-        stability : int
-            The maximum number of allowable change in misclassifications.
-
-        Returns
-        -------
-        int
-            The upper bound of the maximum p value found for the given stability.
-        """
-        upper_bound = 0
-        for i in range(stability + 1):
-            upper_bound += self.number_of_friends_sorted_index[i][1]
-        return upper_bound - 1
-
-    def run_upper_bound_p(self, list_stability: list[int]) -> list[int]:
-        """
-        Find the upper bound of the maximum p value that results in no more
-        than the given number of misclassifications.
-        Parameters
-        ----------
-        list_stability : list[int]
-            The list of stability to check for upper bound p
-
-        Returns
-        -------
-        list[int]
-            List of upper bound p values found for each number of allowable
-            misclassifications in list_stability
-        """
-        self.number_of_friends_sorted_index = self.find_number_of_friends_sorted_index()
-        return self._run(list_stability, self.find_upper_bound_p)
-
-    def find_lower_bound_stability(self, p: int) -> int:
-        """
-        Find the lower bound of the stability that results of removing
-        any combination of p points.
-        Assume that the friends of each instance is UNIQELY among the
-        rest of the instances.
-
-        Parameters
-        ----------
-        p : int
-            The number of points to remove.
-
-        Returns
-        -------
-        int
-            The lower bound of the stability found for the given p.
-        """
-        lower_bound = 0
-        sum_friends = 0
-        for i in range(self.n_samples):
-            sum_friends += self.number_of_friends_sorted_index[i][1]
-            if sum_friends > p:
-                break
-            lower_bound = i + 1
-        return lower_bound
-
-    def run_lower_bound_stability(self, list_p: list[int]) -> list[int]:
-        """
-        Find the lower bound of stability for each p value in the list.
-
-        Parameters
-        ----------
-        list_p : list[int]
-            The list of stability to check for lower bound p
-
-        Returns
-        -------
-        list[int]
-            List of lower bound stability values found for each p value in list_p
-        """
-        self.number_of_friends_sorted_index = self.find_number_of_friends_sorted_index()
-        return self._run(list_p, self.find_lower_bound_stability)
-
-    def find_better_upper_bound_p(self, stability: int) -> int:
-        """
-        Find the better upper bound of the maximum p value that results in no more
-        than the given number of stability in any combination of removing p points.
-        Assume that the friends of each instance can be among the rest of the instances.
-        And we will remove it's friends from list of other instances friends.
-        In each step, we greedily select the instance with the minimum number of friends
-        and remove it's friends and update the friends of other instances.
-
-        Parameters
-        ----------
-        stability : int
-            The maximum number of allowable misclassifications.
-
-        Returns
-        -------
-        int
-            The better upper bound of p value found for the given stability.
-        """
-        # Greedily select the instance with the minimum number of friends
-        idx_min_friends, friends = self.find_instance_with_min_friends()
-        if stability < 0:
-            logger.warning(
-                f"Value of stability is negative: {stability}. In find_better_upper_bound_p."
-            )
-        if stability == 0:
-            if idx_min_friends == -1:
-                return 0
-            return len(friends) - 1
-        if idx_min_friends == -1:
-            return -1
-        changes = self.remove_nearest_friends(idx_min_friends)
-        stability_changed = len(changes["classify_incorrect"])
-        if stability - stability_changed >= 0:
-            rest = self.find_better_upper_bound_p(stability - stability_changed)
-        else:
-            rest = -1
-
-        self.put_back_nearest_friends(changes)
-
-        if rest == -1:
-            return -1
-        return rest + len(changes["friends"])
-
-    def run_better_upper_bound_p(self, list_stability: int) -> list[int]:
-        """
-        Run the better upper bound of the maximum p value that results in no more
-        than the given number of stability in any combination of removing p points.
-
-        Parameters
-        ----------
-        list_stability : int
-            List of stability values to check.
-
-        Returns
-        -------
-        list[int]
-            List of better upper bound p values found for each stability value in list_stability.
-        """
-        ret = self._run(list_stability, self.find_better_upper_bound_p)
-        ret = list(np.where(np.array(ret) < 0, -1, ret))
-        return ret
-
-    def find_better_lower_bound_stability(self, p: int) -> int:
-        """
-        Find the better lower bound of the stability that results of removing
-        any combination of p points.
-        Assume that the friends of each instance can be among the rest of the instances.
-        And we will remove it's friends from list of other instances friends.
-        In each step, we greedily select the instance with the minimum number of friends
-        and remove it's friends and update the friends of other instances.
-
-        Parameters
-        ----------
-        p : int
-            The number of points to remove.
-
-        Returns
-        -------
-        int
-            The better lower bound of the maximum p value found for the given number
-            of allowable misclassifications.
-        """
-        # Greedily select the instance with the minimum number of friends
-        idx_min_friends, friends = self.find_instance_with_min_friends()
-
-        if p < 0:
-            logger.warning(
-                f"Value of p is negative: {p}. In find_better_lower_bound_p."
-            )
-        if idx_min_friends == -1:
-            return -1
-
-        if p < len(friends):
-            return 0
-
-        changes = self.remove_nearest_friends(idx_min_friends)
-
-        stability_changed = len(changes["classify_incorrect"])
-
-        if p == 22:
-            a = 1
-
-        rest = self.find_better_lower_bound_stability(p - len(friends))
-
-        self.put_back_nearest_friends(changes)
-
-        if rest == -1:
-            return -1
-        return rest + stability_changed
-
-    def run_better_lower_bound_stability(self, list_p: int) -> list[int]:
-        """
-        Run the better lower bound for stability for each p value in the list.
-
-        Parameter
-        ----------
-        list_p : int
-            List of p values to check.
-
-        Returns
-        -------
-        list[int]
-            List of better lower bound stability values found for each p value in list_p.
-        """
-        ret = self._run(list_p, self.find_better_lower_bound_stability)
-        ret = list(np.where(np.array(ret) < 0, -1, ret))
-        return ret
 
     ####################################################################################
 

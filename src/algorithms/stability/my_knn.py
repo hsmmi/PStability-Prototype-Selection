@@ -294,7 +294,6 @@ class KNN:
                     logger.warning(
                         f"Instance {idx} has no friends and is classified correctly in find min friends."
                     )
-                    self.find_friends_list(idx)
                 if len(friends) < min_friends:
                     min_friends, min_idx = len(friends), idx
                     min_friends_list = friends
@@ -303,7 +302,7 @@ class KNN:
     def find_number_of_friends_sorted_index(self) -> "None":
         """
         Sort instances by the number of friends they have until the nearest enemy.
-        Just return the instances that are in the mask.
+        Just return the instances that have friend
 
         Returns
         -------
@@ -315,7 +314,7 @@ class KNN:
             [
                 (idx, len(self.find_friends_list(idx)))
                 for idx in range(self.n_samples)
-                if self.mask_train[idx]
+                if self.classify_correct[idx]
             ],
             key=lambda x: x[1],
         )
