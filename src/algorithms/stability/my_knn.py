@@ -638,3 +638,14 @@ class KNN:
             The accuracy of the model.
         """
         return 1 - self.n_misses / self.n_samples
+
+    def reduction_rate(self) -> float:
+        """
+        Calculate the reduction rate of the KNN model.
+
+        Returns
+        -------
+        float
+            The reduction rate of the model.
+        """
+        return 1 - np.sum(self.mask_train) / self.n_samples

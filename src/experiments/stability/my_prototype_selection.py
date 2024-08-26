@@ -46,7 +46,6 @@ if __name__ == "__main__":
             result = prototype_selection.prototype_reduction(5)
 
             removed_prototypes = result["removed_prototypes"]
-
             base_objective_function = result["base_objective_function"]
             idx_min_objective_function = result["idx_min_objective_function"]
             last_idx_under_base = result["last_idx_under_base"]
@@ -54,28 +53,32 @@ if __name__ == "__main__":
             results["#Removed Prototypes"] = removed_prototypes
             results["objective_functions"].append(result["objective_functions"])
             results["accuracy"].append(result["accuracy"])
+            results["reduction_rate"] = result["reduction_rate"]
 
             min_len = min(min_len, len(result["objective_functions"]))
 
-        results["objective_functions"] = [  # make all lists the same length
+        objective_functions = [  # make all lists the same length
             objective_functions[:min_len]
             for objective_functions in results["objective_functions"]
         ]
-        results["accuracy"] = [accuracy[:min_len] for accuracy in results["accuracy"]]
+        accuracies = [accuracy[:min_len] for accuracy in results["accuracy"]]
         removed_prototypes = results["#Removed Prototypes"][:min_len]
+        reduction_rate = results["reduction_rate"][:min_len]
 
-        objective_function = np.mean(results["objective_functions"], axis=0)
-        accuracy = np.mean(results["accuracy"], axis=0)
+        objective_function = np.mean(objective_functions, axis=0)
+        accuracy = np.mean(accuracies, axis=0)
 
         objective_function = [round(score, 2) for score in objective_function]
-        accuracy = [f"{acc:.2%}" for acc in accuracy]
+        accuracy = [round(acc * 100, 2) for acc in accuracy]
+        reduction_rate = [round(rate * 100, 2) for rate in reduction_rate]
 
         excel_content["Prototype Selection " + DATASET] = {
             "#Removed": range(len(removed_prototypes)),
             "#Removed Prototypes": removed_prototypes,
             "Total Scores": objective_function,
             "Accuracy": accuracy,
+            "Reduction Rate": reduction_rate,
         }
-
+        print(excel_content["Prototype Selection " + DATASET])
     save_to_excel(excel_content, "prototype_selection", "horizontal")
     logger.info("Results are saved to excel.")

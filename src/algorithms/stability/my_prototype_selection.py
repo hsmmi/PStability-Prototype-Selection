@@ -136,6 +136,7 @@ class PrototypeSelection(PStability):
         removed_prototypes = [-1]
         objective_functions = [base_objective_function]
         accuracy = [self.accuracy()]
+        reduction_rate = [self.reduction_rate()]
         idx_min_objective_function, min_objective_function = 0, base_objective_function
         last_idx_under_base = 0
         size_one_class = np.sum(self.y == self.classes[0])
@@ -174,6 +175,7 @@ class PrototypeSelection(PStability):
             objective_functions.append(best_objective_function_after_remove)
             changes = self.remove_point(best_remove_idx, update_nearest_enemy=True)
             accuracy.append(self.accuracy())
+            reduction_rate.append(self.reduction_rate())
             list_changes.append(changes)
             if stop_condition[-4:] == "acdr":
                 if accuracy[-1] < base_accuracy - drop_allowed:
@@ -186,6 +188,7 @@ class PrototypeSelection(PStability):
             "removed_prototypes": removed_prototypes,
             "objective_functions": objective_functions,
             "accuracy": accuracy,
+            "reduction_rate": reduction_rate,
             "base_objective_function": base_objective_function,
             "idx_min_objective_function": idx_min_objective_function,
             "min_objective_function": min_objective_function,
