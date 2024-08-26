@@ -79,6 +79,5 @@ if __name__ == "__main__":
             "Accuracy": accuracy,
             "Reduction Rate": reduction_rate,
         }
-        print(excel_content["Prototype Selection " + DATASET])
     save_to_excel(excel_content, "prototype_selection", "horizontal")
     logger.info("Results are saved to excel.")
