@@ -27,7 +27,7 @@ if __name__ == "__main__":
         }
 
     with measure_time("Runtime: Lower bound p for each stability"):
-        list_stability = list(range(21))
+        list_stability = list(range(101))
         list_lower_bound_p = p_stability.run_lower_bound_p(list_stability)
         logger.info(f"Lower bound p for stability: {list_lower_bound_p}")
         excel_content["Lower Bound p"] = {
@@ -36,7 +36,7 @@ if __name__ == "__main__":
         }
 
     with measure_time("Runtime: Better upper bound p for each stability"):
-        list_stability = list(range(21))
+        list_stability = list(range(101))
         list_better_upper_bound_p = p_stability.run_better_upper_bound_p(list_stability)
         logger.info(f"Better upper bound p for stability: {list_better_upper_bound_p}")
         excel_content["Better Upper Bound p"] = {
