@@ -96,27 +96,24 @@ if __name__ == "__main__":
     with measure_time("Runtime: Crisped Stability for p"):
         list_p = list(range(101))
         list_crisped_stability = p_stability.run_crisped_stability(list_p)
-        list_crisped_stability_score = [tuple[0] for tuple in list_crisped_stability]
-        logger.info(
-            f"Crisped stabilityclassification score: {list_crisped_stability_score}"
-        )
+        logger.info(f"Crisped stabilityclassification score: {list_crisped_stability}")
         excel_content["Crisped Stability(lower)"] = {
             "p": list_p,
-            "Crisped Miss": list_crisped_stability_score,
+            "Crisped Miss": list_crisped_stability,
         }
 
     with measure_time("Runtime: Fuzzy Stability for p"):
         list_p = list(range(101))
         list_fuzzy_stability = p_stability.run_fuzzy_stability(list_p)
-        list_fuzzy_stability_score = [
-            round(tuple[0], 2) for tuple in list_fuzzy_stability
+        list_fuzzy_stability = [
+            round(fuzzy_stability, 2) for fuzzy_stability in list_fuzzy_stability
         ]
-        logger.info(
-            f"Fuzzy stabilityclassification score: {list_fuzzy_stability_score}"
-        )
+        logger.info(f"Fuzzy stability score: {list_fuzzy_stability}")
         excel_content["Fuzzy Stability(upper)"] = {
             "p": list_p,
-            "Fuzzy Stability": list_fuzzy_stability_score,
+            "Fuzzy Stability": list_fuzzy_stability,
         }
+
+    print(p_stability.mask_train)
 
     save_to_excel(excel_content, "p_stability tmp", mode="horizontal")

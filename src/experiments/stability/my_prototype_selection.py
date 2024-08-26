@@ -1,56 +1,81 @@
-from sklearn.neighbors import KNeighborsClassifier
+import numpy as np
+from sklearn.model_selection import StratifiedKFold
+from tqdm import tqdm
 from src.algorithms.stability.my_prototype_selection import PrototypeSelection
-from src.utils.timer import measure_time
 from src.utils.excel import save_to_excel
 from config.log import get_logger
-from src.utils.visualization import plot_algorithm_results
 
 logger = get_logger("mylogger")
+logger.setLevel("WARNING")
+
+n_folds = 5
 
 if __name__ == "__main__":
     dataset_list = [
+        "circles_0.05_undersampled",
+        "moons_0.15_undersampled",
+        "iris_undersampled",
+        "wine_undersampled",
         "iris_0_1",
         "iris_0_2",
-        "iris_1_2" "circles_0.05_undersampled",
-        "moons_0.15_undersampled",
+        "iris_1_2",
+        "iris",
+        "wine",
     ]
 
     from src.utils.data_preprocessing import load_data
 
     excel_content = {}
 
-    for DATASET in dataset_list:
+    prototype_selection = PrototypeSelection()
+
+    for DATASET in tqdm(dataset_list, desc="Datasets progress", leave=False):
         X, y = load_data(DATASET)
 
-        prototype_selection = PrototypeSelection()
+        kf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=42)
 
-        # K-Fold
+        results = {"objective_functions": [], "accuracy": []}
+        min_len = len(X)
+        for train_index, test_index in tqdm(
+            kf.split(X, y), total=n_folds, desc="K-Fold progress", leave=False
+        ):
+            X_train, y_train = X[train_index], y[train_index]
 
-        prototype_selection.fit(X, y)
+            prototype_selection.fit(X_train, y_train)
 
-        with measure_time("Runtime: Prototype Selection for " + DATASET):
             result = prototype_selection.prototype_reduction(5)
 
             removed_prototypes = result["removed_prototypes"]
-            total_scores = [round(score, 2) for score in result["total_scores"]]
-            accuracy = [f"{acc:.2%}" for acc in result["accuracy"]]
-            base_total_score = result["base_total_score"]
-            idx_min_total_score = result["idx_min_total_score"]
+
+            base_objective_function = result["base_objective_function"]
+            idx_min_objective_function = result["idx_min_objective_function"]
             last_idx_under_base = result["last_idx_under_base"]
 
-            logger.debug(
-                f"\nRemoved prototypes:\n{removed_prototypes}\n\n"
-                f"Total Scores:\n{total_scores}\n\n"
-                f"Accuracy:\n{accuracy}\n\n"
-                f"Base Total Score: {base_total_score}\n\n"
-                f"Index of Min Total Score: {idx_min_total_score}\n\n"
-                f"Last Index Under Base: {last_idx_under_base}"
-            )
-            excel_content["Prototype Selection " + DATASET] = {
-                "#Removed": range(len(removed_prototypes)),
-                "#Removed Prototypes": removed_prototypes,
-                "Total Scores": total_scores,
-                "Accuracy": accuracy,
-            }
+            results["#Removed Prototypes"] = removed_prototypes
+            results["objective_functions"].append(result["objective_functions"])
+            results["accuracy"].append(result["accuracy"])
+
+            min_len = min(min_len, len(result["objective_functions"]))
+
+        results["objective_functions"] = [  # make all lists the same length
+            objective_functions[:min_len]
+            for objective_functions in results["objective_functions"]
+        ]
+        results["accuracy"] = [accuracy[:min_len] for accuracy in results["accuracy"]]
+        removed_prototypes = results["#Removed Prototypes"][:min_len]
+
+        objective_function = np.mean(results["objective_functions"], axis=0)
+        accuracy = np.mean(results["accuracy"], axis=0)
+
+        objective_function = [round(score, 2) for score in objective_function]
+        accuracy = [f"{acc:.2%}" for acc in accuracy]
+
+        excel_content["Prototype Selection " + DATASET] = {
+            "#Removed": range(len(removed_prototypes)),
+            "#Removed Prototypes": removed_prototypes,
+            "Total Scores": objective_function,
+            "Accuracy": accuracy,
+        }
+
     save_to_excel(excel_content, "prototype_selection", "horizontal")
     logger.info("Results are saved to excel.")

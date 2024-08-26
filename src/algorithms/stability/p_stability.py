@@ -18,7 +18,7 @@ class PStability(KNN):
             Distance metric to use.
         """
         super().__init__(metric)
-        self.sorted_fuzzy_stability_score_teain: list[Tuple[int, float]] = None
+        self.sorted_fuzzy_score_teain: list[Tuple[int, float]] = None
 
     def calculate_stability(self) -> int:
         """
@@ -32,9 +32,7 @@ class PStability(KNN):
         """
         return self.n_misses - self.n_misses_initial
 
-    def find_fuzzy_stability_score_teain(
-        self,
-    ) -> list[Tuple[int, float]]:
+    def find_fuzzy_score_teain(self) -> list[Tuple[int, float]]:
         """
         Calculate the fuzzy misclassification score for each training instance. Which is based on
         friends of test instances on the training instances.
@@ -61,7 +59,7 @@ class PStability(KNN):
             scores.append((idx, score))
         return scores
 
-    def find_max_fuzzy_stability_score_teain(self) -> Tuple[int, float]:
+    def find_max_fuzzy_score_teain(self) -> Tuple[int, float]:
         """
         Find the instance with the maximum fuzzy misclassification score.
 
@@ -71,16 +69,14 @@ class PStability(KNN):
             The (index, score) pair for the instance with the
             maximum fuzzy misclassification score.
         """
-        scores = self.find_fuzzy_stability_score_teain()
+        scores = self.find_fuzzy_score_teain()
         max_idx, max_score = -1, -1
         for idx, score in scores:
             if score > max_score:
                 max_idx, max_score = idx, score
         return max_idx, max_score
 
-    def find_sorted_fuzzy_stability_score_teain(
-        self,
-    ) -> list[Tuple[int, float]]:
+    def find_sorted_fuzzy_score_teain(self) -> list[Tuple[int, float]]:
         """
         Calculate the fuzzy misclassification score for each
         training instance and sort them in descending order.
@@ -90,7 +86,7 @@ class PStability(KNN):
         list[Tuple[int, float]]
             The (index, score) pairs for each instance sorted in descending order of score.
         """
-        scores = self.find_fuzzy_stability_score_teain()
+        scores = self.find_fuzzy_score_teain()
         scores.sort(key=lambda x: x[1], reverse=True)
 
         return scores
@@ -141,8 +137,6 @@ class PStability(KNN):
         # Check that model is fitted
         if self.n_samples is None:
             raise ValueError("Model is not fitted. Run fit method first.")
-
-        self.mask_train = np.ones(self.n_samples, dtype=bool)
 
         single_value = False
         if isinstance(list_value, int):
@@ -697,7 +691,7 @@ class PStability(KNN):
 
     ####################################################################################
 
-    def find_fuzzy_stability(self, p: int) -> Tuple[float, np.ndarray]:
+    def find_fuzzy_stability(self, p: int) -> float:
         """
         Find the maximum fuzzy stability for the given p value.
         In this method, the misclassification for a point is not considered as a binary value.
@@ -711,20 +705,16 @@ class PStability(KNN):
 
         Returns
         -------
-        Tuple[float, np.ndarray]
-            A tuple containing the maximum fuzzy stability and the indices of the removed points.
+        float
+            Maximum fuzzy stability score.
         """
         # Remove the p instances with the highest score
-        fuzzy_misses = 0
-        removed = np.zeros(p, dtype=int)
-        for idx in range(p):
-            removed[idx] = self.sorted_fuzzy_stability_score_teain[idx][0]
-            fuzzy_misses += self.sorted_fuzzy_stability_score_teain[idx][1]
-        return fuzzy_misses, removed
+        fuzzy_score = 0
+        for i in range(p):
+            fuzzy_score += self.sorted_fuzzy_score_teain[i][1]
+        return fuzzy_score
 
-    def run_fuzzy_stability(
-        self, p_list: list[int] | int
-    ) -> list[Tuple[float, np.ndarray]] | Tuple[float, np.ndarray]:
+    def run_fuzzy_stability(self, p_list: list[int] | int) -> list[float] | float:
         """
         Find the maximum fuzzy stability of removing p points.
         In this method, the missclsification for a point is not considered as a binary value.
@@ -738,16 +728,14 @@ class PStability(KNN):
 
         Returns
         -------
-        list[Tuple[float, np.ndarray]] or Tuple[float, np.ndarray]
-            List of maximum fuzzy stability score and the indices of the removed points for each p value in list_p
+        list[float] or float
+            List of maximum fuzzy stability score for each p value in list_p
             or a single result if list_p is an integer
         """
-        self.sorted_fuzzy_stability_score_teain = (
-            self.find_sorted_fuzzy_stability_score_teain()
-        )
+        self.sorted_fuzzy_score_teain = self.find_sorted_fuzzy_score_teain()
         return self._run(p_list, self.find_fuzzy_stability)
 
-    def find_crisped_stability(self, p: int) -> Tuple[int, np.ndarray]:
+    def find_crisped_stability(self, p: int) -> int:
         """
         Find the maximum crisped stability for the given p value.
         In this method, the misclassification for a point is not considered as a binary value.
@@ -763,26 +751,22 @@ class PStability(KNN):
 
         Returns
         -------
-        Tuple[int, np.ndarray]
-            A tuple containing the maximum crisped stability and the indices of misclassified points.
+        int
+            Maximum crisped stability score.
         """
         # Remove the p instances with the highest score
-        removed_sample = set(
-            self.sorted_fuzzy_stability_score_teain[idx][0] for idx in range(p)
-        )
+        removed_sample = set(self.sorted_fuzzy_score_teain[i][0] for i in range(p))
 
         # Check each sample if all it's friends remove to count as crisped
-        crisped_misses = []
+        crisped_stability = 0
         for idx in np.where(self.classify_correct)[0]:
             friends_of_instance = self.friends[idx]
             if all(friend in removed_sample for friend in friends_of_instance):
-                crisped_misses.append(idx)
+                crisped_stability += 1
 
-        return len(crisped_misses), np.array(crisped_misses)
+        return crisped_stability
 
-    def run_crisped_stability(
-        self, p_list: list[int] | int
-    ) -> list[Tuple[int, np.ndarray]] | Tuple[int, np.ndarray]:
+    def run_crisped_stability(self, p_list: list[int] | int) -> list[int] | int:
         """
         Find the maximum crisped stability of removing p points.
         In this method, the missclsification for a point is not considered as a binary value.
@@ -796,12 +780,10 @@ class PStability(KNN):
 
         Returns
         -------
-        list[Tuple[int, np.ndarray]] or Tuple[int, np.ndarray]
-            List of maximum crisped stability score and the indices of the removed points for each p value in list_p
+        list[int] or int
+            List of maximum crisped stability score for each p value in list_p
             or a single result if list_p is an integer
         """
-        self.sorted_fuzzy_stability_score_teain = (
-            self.find_sorted_fuzzy_stability_score_teain()
-        )
+        self.sorted_fuzzy_score_teain = self.find_sorted_fuzzy_score_teain()
         self.friends = self.compute_all_firends()
         return self._run(p_list, self.find_crisped_stability)
