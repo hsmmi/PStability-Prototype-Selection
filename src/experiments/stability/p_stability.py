@@ -114,7 +114,6 @@ if __name__ == "__main__":
             "p": list_p,
             "Fuzzy Stability": list_fuzzy_stability,
         }
-
-    save_jsonl("p_stability", excel_content)
+    save_jsonl("p_stability", {"dataset": DATASET, "results": excel_content})
 
     save_to_excel(excel_content, "p_stability tmp", mode="horizontal")

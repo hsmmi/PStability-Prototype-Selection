@@ -2,12 +2,15 @@ import json
 import numpy as np
 import tabulate
 from config import LOG_PATH
+from config.log import get_logger
+
+logger = get_logger("result")
 
 
-def load_lines_in_range(file_name, start=None, end=None, parse_json=False):
+def load_lines_in_range(file_name, start=None, end=None):
     lines = []
 
-    with open(file_name, "r") as file:
+    with open(LOG_PATH + file_name, "r") as file:
         total_lines = sum(1 for _ in file)  # Calculate total number of lines
         file.seek(0)  # Reset file pointer to the beginning
 
@@ -32,22 +35,28 @@ def load_lines_in_range(file_name, start=None, end=None, parse_json=False):
     # If there's only one line, return it as a string
     if len(lines) == 1:
         single_line = lines[0]
-        if parse_json:
-            try:
-                return json.loads(single_line)
-            except json.JSONDecodeError:
-                return single_line  # Return as string if JSON parsing fails
-        else:
-            return single_line
-
-    # If JSON parsing is requested and there are multiple lines
-    if parse_json:
-        try:
-            return json.loads("\n".join(lines))
-        except json.JSONDecodeError:
-            return lines  # Return the list of lines if JSON parsing fails
+        return single_line
 
     return lines
+
+
+def load_lines_in_range_jsonl(file_name, start=None, end=None):
+    lines = load_lines_in_range(file_name + ".jsonl", start, end)
+
+    # If there's only one line, return it as a string
+    if type(lines) == str:
+        single_line = lines
+        try:
+            return json.loads(single_line)
+        except json.JSONDecodeError:
+            logger.error(f"Failed to parse JSON: {single_line}")
+            return single_line  # Return as string if JSON parsing fails
+
+    # If JSON parsing is requested and there are multiple lines
+    try:
+        return json.loads("\n".join(lines))
+    except json.JSONDecodeError:
+        return lines  # Return the list of lines if JSON parsing fails
 
 
 class NumpyEncoder(json.JSONEncoder):
