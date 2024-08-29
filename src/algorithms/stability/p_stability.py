@@ -3,6 +3,7 @@ import numpy as np
 from tqdm import tqdm
 from src.algorithms.stability.my_knn import KNN
 from config.log import get_logger
+from copy import deepcopy
 
 logger = get_logger("mylogger")
 
@@ -18,6 +19,7 @@ class PStability(KNN):
             Distance metric to use.
         """
         super().__init__(metric)
+        self.initial_classify_correct = None
         self.sorted_fuzzy_score_teain: list[Tuple[int, float]] = None
 
     def calculate_stability(self) -> int:
@@ -25,12 +27,17 @@ class PStability(KNN):
         Check how many samples that classified correctly at first will misclassify
         now in the current state.
 
+        Assumption1: most deviation comes from the errors not from the corrections.
+
+        Assumption2: we ignorethe samples which classified incorrectly at first.
+
         Returns
         -------
         int
             The number of samples that were correctly classified initially but are misclassified now.
         """
-        return self.n_misses - self.n_misses_initial
+        # Sum initial classification correct and current classification incorrect
+        return sum(self.initial_classify_correct & ~self.classify_correct)
 
     def find_fuzzy_score_teain(self) -> list[Tuple[int, float]]:
         """
@@ -114,7 +121,7 @@ class PStability(KNN):
             Fitted instance of the algorithm.
         """
         super().fit(X, y)
-
+        self.initial_classify_correct = deepcopy(self.classify_correct)
         return self
 
     def _run(self, list_value: list[int] | int, check_fn: callable) -> list[int] | int:
@@ -174,11 +181,15 @@ class PStability(KNN):
             The maximum p value found for the given number of allowable misclassifications.
             returns -1 if no such p value found.
         """
+        if stability < 0:
+            return -1
+
         if stability == 0:
             idx_min_friends, friends = self.find_instance_with_min_friends(start_index)
             if idx_min_friends == -1:
                 return 0
             return len(friends) - 1
+
         max_p = self.n_samples + 1
         # Assume that each instance going to be misclassified
         # with removing it's friends
@@ -188,15 +199,16 @@ class PStability(KNN):
             leave=False,
             disable=stability < 3,
         ):
-            if self.classify_correct[idx]:
-                changes = self.remove_nearest_friends(idx, update_nearest_enemy=True)
-                change_stability = len(changes["classify_incorrect"]) - len(
-                    changes["classify_correct"]
-                )
-                if change_stability <= stability:
-                    res_max_p = self.find_exact_p(stability - change_stability, idx + 1)
-                    if res_max_p != -1:
-                        max_p = min(max_p, res_max_p + len(changes["friends"]))
+            if self.initial_classify_correct[idx] and self.classify_correct[idx]:
+                changes = self.remove_nearest_friends(idx, update_nearest_enemy=False)
+                change_stability = len(changes["classify_incorrect"])
+
+                res_max_p = self.find_exact_p(stability - change_stability, idx + 1)
+                if res_max_p != -1:
+                    max_p = min(max_p, res_max_p + len(changes["friends"]))
+                else:
+                    # Stability becشme less than zerp
+                    max_p = min(max_p, len(changes["friends"]) - 1)
 
                 self.put_back_nearest_friends(changes)
 
@@ -260,15 +272,6 @@ class PStability(KNN):
             len_class_i = len(number_of_friends_sorted_classes[i])
             for j in range(stability + 2):
                 for x in range(min(j + 1, len_class_i)):
-                    # Select x instance from class i to miss of j total miss
-                    # if next instance going to miss
-                    if (
-                        x + 1 < len_class_i
-                        and number_of_friends_sorted_classes[i][x]
-                        == number_of_friends_sorted_classes[i][x + 1]
-                    ):
-                        continue
-
                     dp[i][j] = min(
                         dp[i][j],
                         dp[i - 1][j - x] + number_of_friends_sorted_classes[i][x],
@@ -279,52 +282,6 @@ class PStability(KNN):
             if dp[self.n_classes][stability + 1] != float("inf")
             else -1
         )
-
-    def find_lower_bound_p_2(self, stability: int) -> int:
-        """
-        Find the lower bound of the maximum p value that results in no more
-        than the given number of misclassifications in any combination of removing p points.
-        Assume that the friends of each instance is completely on the rest of the
-        instances after that in increasing friends size order in each class.
-        And check for each class because to have a lower bound, removed instances should be
-        from the same class.
-
-        Parameters
-        ----------
-        stability : int
-            The maximum number of allowable misclassifications.
-
-        Returns
-        -------
-        int
-            The lower bound of the maximum p value found for the given number of allowable misclassifications.
-        """
-        if stability == 0:
-            return self.number_of_friends_sorted_index[0][1] - 1
-        max_p = self.n_samples + 1
-        for class_label in self.classes:
-            # Select instances of the class in the order of increasing number of friends
-            number_of_friends_sorted_index_class = [
-                (idx, n_friends)
-                for (idx, n_friends) in self.number_of_friends_sorted_index
-                if self.y[idx] == class_label
-            ]
-            # Check if exact stability is possible by checking the next instance in the order to
-            # have more friends than the current instance.
-            if (
-                number_of_friends_sorted_index_class[stability - 1][1]
-                == number_of_friends_sorted_index_class[stability][1]
-            ):
-                continue
-            else:
-                max_p = min(
-                    max_p,
-                    number_of_friends_sorted_index_class[stability][1] - 1,
-                )
-
-        if max_p == self.n_samples + 1:
-            return -1
-        return max_p
 
     def run_lower_bound_p(self, list_stability: list[int]) -> list[int]:
         """
@@ -364,34 +321,29 @@ class PStability(KNN):
         int
             The better upper bound of p value found for the given stability.
         """
+        if stability < 0:
+            return -1
         # Greedily select the instance with the minimum number of friends
         idx_min_friends, friends = self.find_instance_with_min_friends()
-        if stability < 0:
-            logger.warning(
-                f"Value of stability is negative: {stability}. In find_better_upper_bound_p."
-            )
-        if stability == 0:
-            if idx_min_friends == -1:
-                return 0
-            return len(friends) - 1
         if idx_min_friends == -1:
-            return -1
+            return 0
+
+        if stability == 0:
+            return len(friends) - 1
+
         changes = self.remove_nearest_friends(
-            idx_min_friends, update_nearest_enemy=True
+            idx_min_friends, update_nearest_enemy=False
         )
-        stability_changed = len(changes["classify_incorrect"]) - len(
-            changes["classify_correct"]
-        )
-        if stability - stability_changed >= 0:
-            rest = self.find_better_upper_bound_p(stability - stability_changed)
-        else:
-            rest = -1
+
+        stability_changed = len(changes["classify_incorrect"])
+
+        rest = self.find_better_upper_bound_p(stability - stability_changed)
 
         self.put_back_nearest_friends(changes)
 
         if rest == -1:
-            return -1
-        return rest + len(changes["friends"])
+            return len(friends) - 1
+        return len(friends) + rest
 
     def run_better_upper_bound_p(self, list_stability: int) -> list[int]:
         """
@@ -409,7 +361,6 @@ class PStability(KNN):
             List of better upper bound p values found for each stability value in list_stability.
         """
         ret = self._run(list_stability, self.find_better_upper_bound_p)
-        ret = list(np.where(np.array(ret) < 0, -1, ret))
         return ret
 
     def find_upper_bound_p(self, stability: int) -> int:
@@ -468,7 +419,7 @@ class PStability(KNN):
             Maximum number of misclassifications found.
         """
         if p == 0:
-            return self.calculate_stability()
+            return 0
         if start_index >= self.n_samples:
             return 0
         max_misses = 0
@@ -479,9 +430,10 @@ class PStability(KNN):
             disable=p < 3,
         ):
             if self.mask_train[idx]:
-                changed = self.remove_point(idx, update_nearest_enemy=True)
-                misses = self.find_exact_stability(p - 1, idx + 1)
-                max_misses = max(max_misses, misses)
+                changed = self.remove_point(idx, update_nearest_enemy=False)
+                stability_changed = len(changed["classify_incorrect"])
+                stability = self.find_exact_stability(p - 1, idx + 1)
+                max_misses = max(max_misses, stability_changed + stability)
                 self.put_back_point(idx, changed)
         return max_misses
 
@@ -500,7 +452,7 @@ class PStability(KNN):
         list[int]
             List of maximum misclassifications found for each p value in range[0, max_p].
         """
-        return self._run(list(p_list), self.find_exact_stability)
+        return self._run(p_list, self.find_exact_stability)
 
     def find_lower_bound_stability(self, p: int) -> int:
         """
@@ -569,6 +521,7 @@ class PStability(KNN):
             logger.warning(
                 f"Value of p is negative: {p}. In find_better_lower_bound_p."
             )
+            return -1
         if p == 0:
             return 0
         # Greedily select the instance with the minimum number of friends
@@ -581,19 +534,17 @@ class PStability(KNN):
             return 0
 
         changes = self.remove_nearest_friends(
-            idx_min_friends, update_nearest_enemy=True
+            idx_min_friends, update_nearest_enemy=False
         )
 
-        stability_changed = len(changes["classify_incorrect"]) - len(
-            changes["classify_correct"]
-        )
+        stability_changed = len(changes["classify_incorrect"])
 
         rest = self.find_better_lower_bound_stability(p - len(friends))
 
         self.put_back_nearest_friends(changes)
 
         if rest == -1:
-            return -1
+            return 0
         return rest + stability_changed
 
     def run_better_lower_bound_stability(self, list_p: int) -> list[int]:
@@ -645,29 +596,9 @@ class PStability(KNN):
                     # Remove x sample from class i of j total remove
                     dp[i][j] = max(dp[i][j], dp[i - 1][j - x] + class_miss)
 
-        return int(dp[self.n_classes][p])
-
-    def find_upper_bound_stability2(self, p: int) -> int:
-        """
-        Find the upper bound of stability for the given p value.
-        Assume that the friends of each instance is completely on the rest of the
-        instances after that instance in increasing friends size order in each class.
-        """
-        max_stability = 0
-        for class_label in self.classes:
-            # Select instances of the class in the order of increasing number of friends
-            number_of_friends_sorted_index_class = [
-                (idx, n_friends)
-                for (idx, n_friends) in self.number_of_friends_sorted_index
-                if self.y[idx] == class_label
-            ]
-            # Find the maximum stability for the class
-            stability = 0
-            for idx in range(len(number_of_friends_sorted_index_class)):
-                if number_of_friends_sorted_index_class[idx][1] <= p:
-                    stability = idx + 1
-            max_stability = max(max_stability, stability)
-        return max_stability
+        return (
+            int(dp[self.n_classes][p]) if dp[self.n_classes][p] != float("inf") else -1
+        )
 
     def run_upper_bound_stability(self, list_p: list[int]) -> list[int]:
         """

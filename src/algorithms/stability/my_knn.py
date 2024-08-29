@@ -376,7 +376,9 @@ class KNN:
                 )
                 self.nearest_friends_pointer[idx2] += 1
                 nearest_friend_idx2 = self.nearest_friend(idx2)
-            if update_nearest_enemy:
+
+        if update_nearest_enemy:
+            for idx2 in range(self.n_samples):
                 nearest_enemy_idx2 = self.nearest_enemy(idx2)
                 while nearest_enemy_idx2 < self.n_samples and (
                     nearest_enemy_idx2 in changes["friends"]
@@ -390,6 +392,7 @@ class KNN:
 
         changes["classify_incorrect"] = []
         changes["classify_correct"] = []
+
         # Check if instance becomes misclassified after removing the friends of the point
         for idx2 in range(self.n_samples):
             if self.classify_correct[idx2] and self._classify(idx2) != self.y[idx2]:
@@ -400,11 +403,6 @@ class KNN:
                 self.classify_correct[idx2] == False
                 and self._classify(idx2) == self.y[idx2]
             ):
-                if update_nearest_enemy == False:
-                    logger.error(
-                        "Instance classified incorrectly and"
-                        "becomes correct when updating nearest enemy is False."
-                    )
                 changes["classify_correct"].append(idx2)
                 self.classify_correct[idx2] = True
                 self.n_misses -= 1
@@ -481,10 +479,9 @@ class KNN:
         """
         self.mask_train[idx] = False
         changes = {}
-        changes["classify_incorrect"] = []
-        changes["classify_correct"] = []
         changes["update_nearest_friends"] = {}
         changes["update_nearest_enemies"] = {}
+
         for idx2 in range(self.n_samples):
             nearest_friend_idx2 = self.nearest_friend(idx2)
             while nearest_friend_idx2 < self.n_samples and (
@@ -496,7 +493,9 @@ class KNN:
                 )
                 self.nearest_friends_pointer[idx2] += 1
                 nearest_friend_idx2 = self.nearest_friend(idx2)
-            if update_nearest_enemy:
+
+        if update_nearest_enemy:
+            for idx2 in range(self.n_samples):
                 nearest_enemy_idx2 = self.nearest_enemy(idx2)
                 while nearest_enemy_idx2 < self.n_samples and (
                     nearest_enemy_idx2 == idx
@@ -507,6 +506,11 @@ class KNN:
                     )
                     self.nearest_enemies_pointer[idx2] += 1
                     nearest_enemy_idx2 = self.nearest_enemy(idx2)
+
+        changes["classify_incorrect"] = []
+        changes["classify_correct"] = []
+
+        for idx2 in range(self.n_samples):
             # Check if instance becomes misclassified after removing the point and vice versa
             if self.classify_correct[idx2] and self._classify(idx2) != self.y[idx2]:
                 changes["classify_incorrect"].append(idx2)
@@ -524,6 +528,7 @@ class KNN:
                 changes["classify_correct"].append(idx2)
                 self.classify_correct[idx2] = True
                 self.n_misses -= 1
+
         return changes
 
     def put_back_point(

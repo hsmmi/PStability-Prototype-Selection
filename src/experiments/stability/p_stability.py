@@ -2,6 +2,7 @@ from src.algorithms.stability.p_stability import PStability
 from src.utils.timer import measure_time
 from config.log import get_logger
 from src.utils.excel import save_to_excel
+from src.utils.result import save_jsonl
 
 logger = get_logger("mylogger")
 
@@ -114,6 +115,6 @@ if __name__ == "__main__":
             "Fuzzy Stability": list_fuzzy_stability,
         }
 
-    print(p_stability.mask_train)
+    save_jsonl("p_stability", excel_content)
 
     save_to_excel(excel_content, "p_stability tmp", mode="horizontal")

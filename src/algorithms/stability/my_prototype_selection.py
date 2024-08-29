@@ -2,7 +2,6 @@ from typing import Tuple
 import numpy as np
 from config.log import get_logger
 from src.algorithms.stability.p_stability import PStability
-from src.utils.visualization import plot_algorithm_results
 
 logger = get_logger("mylogger")
 
@@ -181,7 +180,7 @@ class PrototypeSelection(PStability):
                 if accuracy[-1] < base_accuracy - drop_allowed:
                     break
         # put back points
-        for idx in range(size_one_class, 0, -1):
+        for idx in range(len(removed_prototypes) - 1, 0, -1):
             self.put_back_point(removed_prototypes[idx], list_changes[idx - 1])
 
         ret = {
