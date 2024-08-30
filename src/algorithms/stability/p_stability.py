@@ -207,9 +207,10 @@ class PStability(KNN):
                 changes = self.remove_nearest_friends(idx, update_nearest_enemy=False)
                 change_stability = len(changes["classify_incorrect"])
 
-                # # Optimization: Not gonna improve anyway
-                # if len(changes["friends"]) > max_p:
-                #     continue
+                # Optimization: Not gonna improve anyway
+                if len(changes["friends"]) > max_p:
+                    self.put_back_nearest_friends(changes)
+                    continue
 
                 res_max_p = self.find_exact_p(stability - change_stability, idx + 1)
                 if res_max_p != -1:
@@ -220,8 +221,6 @@ class PStability(KNN):
 
                 self.put_back_nearest_friends(changes)
 
-        if max_p == self.n_samples + 1:
-            return -1
         return max_p
 
     def run_exact_p(self, list_stability: list[int]) -> list[int]:
