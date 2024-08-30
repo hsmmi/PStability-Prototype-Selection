@@ -246,7 +246,7 @@ class PStability(KNN):
         """
         return self._run(list_distortion, self.find_exact_stability)
 
-    def find_lower_bound_stability(self, distortion: int) -> int:
+    def find_same_friend_stability(self, distortion: int) -> int:
         """
         Find the lower bound of the maximum stability value that results in no more
         than the given number of misclassifications in any combination of removing stability points.
@@ -298,7 +298,7 @@ class PStability(KNN):
             else -1
         )
 
-    def run_lower_bound_stability(self, list_distortion: list[int]) -> list[int]:
+    def run_same_friend_stability(self, list_distortion: list[int]) -> list[int]:
         """
         Find the lower bound of the maximum stability value that results in no more
         than the given number of misclassifications.
@@ -311,13 +311,13 @@ class PStability(KNN):
         Returns
         -------
         list[int]
-            List of lower bound stability values found for each number of allowable
+            List of same friend stability values found for each number of allowable
             misclassifications in list_distortion.
         """
         self.number_of_friends_sorted_index = self.find_number_of_friends_sorted_index()
-        return self._run(list_distortion, self.find_lower_bound_stability)
+        return self._run(list_distortion, self.find_same_friend_stability)
 
-    def find_better_upper_bound_stability(self, distortion: int) -> int:
+    def find_greedy_stability(self, distortion: int) -> int:
         """
         Find the better upper bound of the maximum stability value that results in no more
         than the given number of distortion in any combination of removing stability points.
@@ -352,7 +352,7 @@ class PStability(KNN):
 
         distortion_changed = len(changes["classify_incorrect"])
 
-        rest = self.find_better_upper_bound_stability(distortion - distortion_changed)
+        rest = self.find_greedy_stability(distortion - distortion_changed)
 
         self.put_back_nearest_friends(changes)
 
@@ -360,7 +360,7 @@ class PStability(KNN):
             return len(friends) - 1
         return len(friends) + rest
 
-    def run_better_upper_bound_stability(self, list_distortion: int) -> list[int]:
+    def run_greedy_stability(self, list_distortion: int) -> list[int]:
         """
         Run the better upper bound of the maximum stability value that results in no more
         than the given number of distortion in any combination of removing stability points.
@@ -373,12 +373,12 @@ class PStability(KNN):
         Returns
         -------
         list[int]
-            List of better upper bound stability values found for each distortion value in list_distortion.
+            List of greedy stability values found for each distortion value in list_distortion.
         """
-        ret = self._run(list_distortion, self.find_better_upper_bound_stability)
+        ret = self._run(list_distortion, self.find_greedy_stability)
         return ret
 
-    def find_upper_bound_stability(self, distortion: int) -> int:
+    def find_unique_friend_stability(self, distortion: int) -> int:
         """
         Find the upper bound of the maximum stability value that results in no more
         than the given number of misclassifications in any combination of removing stability points.
@@ -399,23 +399,23 @@ class PStability(KNN):
             upper_bound += self.number_of_friends_sorted_index[i][1]
         return upper_bound - 1
 
-    def run_upper_bound_stability(self, list_distortion: list[int]) -> list[int]:
+    def run_unique_friend_stability(self, list_distortion: list[int]) -> list[int]:
         """
         Find the upper bound of the maximum stability value that results in no more
         than the given number of misclassifications.
         Parameters
         ----------
         list_distortion : list[int]
-            The list of distortion to check for upper bound stability
+            The list of distortion to check for unique friend stability
 
         Returns
         -------
         list[int]
-            List of upper bound stability values found for each number of allowable
+            List of unique friend stability values found for each number of allowable
             misclassifications in list_distortion
         """
         self.number_of_friends_sorted_index = self.find_number_of_friends_sorted_index()
-        return self._run(list_distortion, self.find_upper_bound_stability)
+        return self._run(list_distortion, self.find_unique_friend_stability)
 
     def find_exact_distortion(self, stability: int, start_index: int = 0) -> int:
         """
@@ -469,7 +469,7 @@ class PStability(KNN):
         """
         return self._run(p_list, self.find_exact_distortion)
 
-    def find_lower_bound_distortion(self, stability: int) -> int:
+    def find_unique_friend_distortion(self, stability: int) -> int:
         """
         Find the lower bound of the distortion that results of removing
         any combination of stability points.
@@ -495,24 +495,24 @@ class PStability(KNN):
             lower_bound = i + 1
         return lower_bound
 
-    def run_lower_bound_distortion(self, list_stability: list[int]) -> list[int]:
+    def run_unique_friend_distortion(self, list_stability: list[int]) -> list[int]:
         """
         Find the lower bound of distortion for each stability value in the list.
 
         Parameters
         ----------
         list_stability : list[int]
-            The list of distortion to check for lower bound stability
+            The list of distortion to check for same friend stability
 
         Returns
         -------
         list[int]
-            List of lower bound distortion values found for each stability value in list_stability
+            List of unique friend distortion values found for each stability value in list_stability
         """
         self.number_of_friends_sorted_index = self.find_number_of_friends_sorted_index()
-        return self._run(list_stability, self.find_lower_bound_distortion)
+        return self._run(list_stability, self.find_unique_friend_distortion)
 
-    def find_better_lower_bound_distortion(self, stability: int) -> int:
+    def find_greedy_distortion(self, stability: int) -> int:
         """
         Find the better lower bound of the distortion that results of removing
         any combination of stability points.
@@ -534,7 +534,7 @@ class PStability(KNN):
         """
         if stability < 0:
             logger.warning(
-                f"Value of stability is negative: {stability}. In find_better_lower_bound_stability."
+                f"Value of stability is negative: {stability}. In find_better_same_friend_stability."
             )
             return -1
         if stability == 0:
@@ -554,7 +554,7 @@ class PStability(KNN):
 
         distortion_changed = len(changes["classify_incorrect"])
 
-        rest = self.find_better_lower_bound_distortion(stability - len(friends))
+        rest = self.find_greedy_distortion(stability - len(friends))
 
         self.put_back_nearest_friends(changes)
 
@@ -562,7 +562,7 @@ class PStability(KNN):
             return 0
         return rest + distortion_changed
 
-    def run_better_lower_bound_distortion(self, list_stability: int) -> list[int]:
+    def run_greedy_distortion(self, list_stability: int) -> list[int]:
         """
         Run the better lower bound for distortion for each stability value in the list.
 
@@ -574,12 +574,12 @@ class PStability(KNN):
         Returns
         -------
         list[int]
-            List of better lower bound distortion values found for each stability value in list_stability.
+            List of greedy distortion values found for each stability value in list_stability.
         """
-        ret = self._run(list_stability, self.find_better_lower_bound_distortion)
+        ret = self._run(list_stability, self.find_greedy_distortion)
         return ret
 
-    def find_upper_bound_distortion(self, stability: int) -> int:
+    def find_same_friend_distortion(self, stability: int) -> int:
         """
         Find the upper bound of distortion for the given stability value.
         Assume that the friends of each instance is completely on the rest of the
@@ -617,7 +617,7 @@ class PStability(KNN):
             else -1
         )
 
-    def run_upper_bound_distortion(self, list_stability: list[int]) -> list[int]:
+    def run_same_friend_distortion(self, list_stability: list[int]) -> list[int]:
         """
         Find the upper bound of distortion for each stability value in the list.
         Distortion is the maximum number of misclassifications which classify
@@ -632,10 +632,10 @@ class PStability(KNN):
         Returns
         -------
         list[int]
-            List of upper bound distortion values found for each stability value in list_stability.
+            List of same friend distortion values found for each stability value in list_stability.
         """
         self.number_of_friends_sorted_index = self.find_number_of_friends_sorted_index()
-        return self._run(list_stability, self.find_upper_bound_distortion)
+        return self._run(list_stability, self.find_same_friend_distortion)
 
     ####################################################################################
 
@@ -683,13 +683,13 @@ class PStability(KNN):
         self.sorted_fuzzy_score_teain = self.find_sorted_fuzzy_score_teain()
         return self._run(p_list, self.find_fuzzy_distortion)
 
-    def find_crisped_distortion(self, stability: int) -> int:
+    def find_binary_distortion(self, stability: int) -> int:
         """
-        Find the maximum crisped distortion for the given stability value.
+        Find the maximum binary distortion for the given stability value.
         In this method, the misclassification for a point is not considered as a binary value.
         We calculate a score for each point and then remove the stability points with the highest score.
         And the check how many of samples gonna misclasify completely (sample with miss degree 1)
-        and count it as crisped distortion.
+        and count it as binary distortion.
         The value is a lower bound of the distortion.
 
         Parameters
@@ -700,25 +700,25 @@ class PStability(KNN):
         Returns
         -------
         int
-            Maximum crisped distortion score.
+            Maximum binary distortion score.
         """
         # Remove the stability instances with the highest score
         removed_sample = set(
             self.sorted_fuzzy_score_teain[i][0] for i in range(stability)
         )
 
-        # Check each sample if all it's friends remove to count as crisped
-        crisped_distortion = 0
+        # Check each sample if all it's friends remove to count as binary
+        binary_distortion = 0
         for idx in np.where(self.classify_correct)[0]:
             friends_of_instance = self.friends[idx]
             if all(friend in removed_sample for friend in friends_of_instance):
-                crisped_distortion += 1
+                binary_distortion += 1
 
-        return crisped_distortion
+        return binary_distortion
 
-    def run_crisped_distortion(self, p_list: list[int] | int) -> list[int] | int:
+    def run_binary_distortion(self, p_list: list[int] | int) -> list[int] | int:
         """
-        Find the maximum crisped distortion of removing stability points.
+        Find the maximum binary distortion of removing stability points.
         In this method, the missclsification for a point is not considered as a binary value.
         We calculate a score for each point and then remove the stability points with the highest score.
         The value is a much better lower bound of the distortion.
@@ -731,9 +731,9 @@ class PStability(KNN):
         Returns
         -------
         list[int] or int
-            List of maximum crisped distortion score for each stability value in list_stability
+            List of maximum binary distortion score for each stability value in list_stability
             or a single result if list_stability is an integer
         """
         self.sorted_fuzzy_score_teain = self.find_sorted_fuzzy_score_teain()
         self.friends = self.compute_all_friends()
-        return self._run(p_list, self.find_crisped_distortion)
+        return self._run(p_list, self.find_binary_distortion)

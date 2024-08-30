@@ -31,42 +31,38 @@ def run_dataset(dataset: str):
             "stability": list_exact_stability,
         }
 
-    with measure_time("Runtime: Lower bound stability for each distortion"):
+    with measure_time("Runtime: same friend stability for each distortion"):
         list_distortion = list(range(max_distortion + 1))
-        list_lower_bound_stability = p_stability.run_lower_bound_stability(
+        list_same_friend_stability = p_stability.run_same_friend_stability(
             list_distortion
         )
         logger.info(
-            f"Lower bound stability for distortion: {list_lower_bound_stability}"
+            f"same friend stability for distortion: {list_same_friend_stability}"
         )
-        excel_content["Lower Bound stability"] = {
+        excel_content["same friend stability"] = {
             "distortion": list_distortion,
-            "stability": list_lower_bound_stability,
+            "stability": list_same_friend_stability,
         }
 
-    with measure_time("Runtime: Better upper bound stability for each distortion"):
+    with measure_time("Runtime: greedy stability for each distortion"):
         list_distortion = list(range(max_distortion + 1))
-        list_better_upper_bound_stability = (
-            p_stability.run_better_upper_bound_stability(list_distortion)
-        )
-        logger.info(
-            f"Better upper bound stability for distortion: {list_better_upper_bound_stability}"
-        )
-        excel_content["Better Upper Bound stability"] = {
+        list_greedy_stability = p_stability.run_greedy_stability(list_distortion)
+        logger.info(f"greedy stability for distortion: {list_greedy_stability}")
+        excel_content["greedy stability"] = {
             "distortion": list_distortion,
-            "stability": list_better_upper_bound_stability,
+            "stability": list_greedy_stability,
         }
-    with measure_time("Runtime: Upper bound stability for each distortion"):
+    with measure_time("Runtime: unique friend stability for each distortion"):
         list_distortion = list(range(21))
-        list_upper_bound_stability = p_stability.run_upper_bound_stability(
+        list_unique_friend_stability = p_stability.run_unique_friend_stability(
             list_distortion
         )
         logger.info(
-            f"Upper bound stability for distortion: {list_upper_bound_stability}"
+            f"unique friend stability for distortion: {list_unique_friend_stability}"
         )
-        excel_content["Upper Bound stability"] = {
+        excel_content["unique friend stability"] = {
             "distortion": list_distortion,
-            "stability": list_upper_bound_stability,
+            "stability": list_unique_friend_stability,
         }
     with measure_time("Runtime: Exact distortion for each stability"):
         list_stability = [0, 1, 2]
@@ -77,54 +73,48 @@ def run_dataset(dataset: str):
             "distortion": list_exact_distortion,
         }
 
-    with measure_time("Runtime: Lower bound distortion for each stability"):
+    with measure_time("Runtime: unique friend distortion for each stability"):
         list_stability = list(range(max_stability + 1))
-        list_lower_bound_distortion = p_stability.run_lower_bound_distortion(
+        list_unique_friend_distortion = p_stability.run_unique_friend_distortion(
             list_stability
         )
         logger.info(
-            f"Lower bound distortion for stability: {list_lower_bound_distortion}"
+            f"unique friend distortion for stability: {list_unique_friend_distortion}"
         )
-        excel_content["Lower Bound distortion"] = {
+        excel_content["unique friend distortion"] = {
             "stability": list_stability,
-            "distortion": list_lower_bound_distortion,
+            "distortion": list_unique_friend_distortion,
         }
 
-    with measure_time("Runtime: Better lower bound distortion for each stability"):
+    with measure_time("Runtime: greedy distortion for each stability"):
         list_stability = list(range(max_stability + 1))
-        list_better_lower_bound_distortion = (
-            p_stability.run_better_lower_bound_distortion(list_stability)
-        )
-        logger.info(
-            f"Better lower bound distortion for stability: {list_better_lower_bound_distortion}"
-        )
-        excel_content["Better Lower Bound distortion"] = {
+        list_greedy_distortion = p_stability.run_greedy_distortion(list_stability)
+        logger.info(f"greedy distortion for stability: {list_greedy_distortion}")
+        excel_content["greedy distortion"] = {
             "stability": list_stability,
-            "distortion": list_better_lower_bound_distortion,
+            "distortion": list_greedy_distortion,
         }
 
-    with measure_time("Runtime: Upper bound distortion for each stability"):
+    with measure_time("Runtime: same friend distortion for each stability"):
         list_stability = list(range(max_stability + 1))
-        list_upper_bound_distortion = p_stability.run_upper_bound_distortion(
+        list_same_friend_distortion = p_stability.run_same_friend_distortion(
             list_stability
         )
         logger.info(
-            f"Upper bound distortion for stability: {list_upper_bound_distortion}"
+            f"same friend distortion for stability: {list_same_friend_distortion}"
         )
-        excel_content["Upper Bound distortion"] = {
+        excel_content["same friend distortion"] = {
             "stability": list_stability,
-            "distortion": list_upper_bound_distortion,
+            "distortion": list_same_friend_distortion,
         }
 
-    with measure_time("Runtime: Crisped distortion for stability"):
+    with measure_time("Runtime: binary distortion for stability"):
         list_stability = list(range(max_stability + 1))
-        list_crisped_distortion = p_stability.run_crisped_distortion(list_stability)
-        logger.info(
-            f"Crisped distortionclassification score: {list_crisped_distortion}"
-        )
-        excel_content["Crisped distortion(lower)"] = {
+        list_binary_distortion = p_stability.run_binary_distortion(list_stability)
+        logger.info(f"binary distortionclassification score: {list_binary_distortion}")
+        excel_content["binary distortion(lower)"] = {
             "stability": list_stability,
-            "Crisped Miss": list_crisped_distortion,
+            "binary Miss": list_binary_distortion,
         }
 
     with measure_time("Runtime: Fuzzy distortion for stability"):
