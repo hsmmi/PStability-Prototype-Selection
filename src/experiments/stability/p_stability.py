@@ -19,106 +19,128 @@ def run_dataset(dataset: str):
     with measure_time("fitting"):
         p_stability.fit(X, y)
 
-    max_p = p_stability.n_samples
-    max_stability = p_stability.n_samples - p_stability.n_misses
+    max_stability = p_stability.n_samples
+    max_distortion = p_stability.n_samples - p_stability.n_misses
 
-    with measure_time("Runtime: Exact p for each Stability"):
-        list_stability = list(range(11))
-        list_exact_p = p_stability.run_exact_p(list_stability)
-        logger.info(f"Exact p: {list_exact_p}")
-        excel_content["Exact p"] = {
-            "stability": list_stability,
-            "p": list_exact_p,
-        }
-
-    with measure_time("Runtime: Lower bound p for each stability"):
-        list_stability = list(range(max_stability + 1))
-        list_lower_bound_p = p_stability.run_lower_bound_p(list_stability)
-        logger.info(f"Lower bound p for stability: {list_lower_bound_p}")
-        excel_content["Lower Bound p"] = {
-            "stability": list_stability,
-            "p": list_lower_bound_p,
-        }
-
-    with measure_time("Runtime: Better upper bound p for each stability"):
-        list_stability = list(range(max_stability + 1))
-        list_better_upper_bound_p = p_stability.run_better_upper_bound_p(list_stability)
-        logger.info(f"Better upper bound p for stability: {list_better_upper_bound_p}")
-        excel_content["Better Upper Bound p"] = {
-            "stability": list_stability,
-            "p": list_better_upper_bound_p,
-        }
-    with measure_time("Runtime: Upper bound p for each stability"):
-        list_stability = list(range(21))
-        list_upper_bound_p = p_stability.run_upper_bound_p(list_stability)
-        logger.info(f"Upper bound p for stability: {list_upper_bound_p}")
-        excel_content["Upper Bound p"] = {
-            "stability": list_stability,
-            "p": list_upper_bound_p,
-        }
-    with measure_time("Runtime: Exact Stability for each p"):
-        list_p = [0, 1, 2]
-        list_exact_stability = p_stability.run_exact_stability(list_p)
-        logger.info(f"Exact Stability: {list_exact_stability}")
-        excel_content["Exact MissclasStabilityifications"] = {
-            "p": list_p,
+    with measure_time("Runtime: Exact stability for each distortion"):
+        list_distortion = list(range(10))
+        list_exact_stability = p_stability.run_exact_stability(list_distortion)
+        logger.info(f"Exact stability: {list_exact_stability}")
+        excel_content["Exact stability"] = {
+            "distortion": list_distortion,
             "stability": list_exact_stability,
         }
 
-    with measure_time("Runtime: Lower bound stability for each p"):
-        list_p = list(range(max_p + 1))
-        list_lower_bound_stability = p_stability.run_lower_bound_stability(list_p)
-        logger.info(f"Lower bound stability for p: {list_lower_bound_stability}")
-        excel_content["Lower Bound Stability"] = {
-            "p": list_p,
+    with measure_time("Runtime: Lower bound stability for each distortion"):
+        list_distortion = list(range(max_distortion + 1))
+        list_lower_bound_stability = p_stability.run_lower_bound_stability(
+            list_distortion
+        )
+        logger.info(
+            f"Lower bound stability for distortion: {list_lower_bound_stability}"
+        )
+        excel_content["Lower Bound stability"] = {
+            "distortion": list_distortion,
             "stability": list_lower_bound_stability,
         }
 
-    with measure_time("Runtime: Better lower bound stability for each p"):
-        list_p = list(range(max_p + 1))
-        list_better_lower_bound_stability = (
-            p_stability.run_better_lower_bound_stability(list_p)
+    with measure_time("Runtime: Better upper bound stability for each distortion"):
+        list_distortion = list(range(max_distortion + 1))
+        list_better_upper_bound_stability = (
+            p_stability.run_better_upper_bound_stability(list_distortion)
         )
         logger.info(
-            f"Better lower bound stability for p: {list_better_lower_bound_stability}"
+            f"Better upper bound stability for distortion: {list_better_upper_bound_stability}"
         )
-        excel_content["Better Lower Bound Stability"] = {
-            "p": list_p,
-            "stability": list_better_lower_bound_stability,
+        excel_content["Better Upper Bound stability"] = {
+            "distortion": list_distortion,
+            "stability": list_better_upper_bound_stability,
         }
-
-    with measure_time("Runtime: Upper bound stability for each p"):
-        list_p = list(range(max_p + 1))
-        list_upper_bound_stability = p_stability.run_upper_bound_stability(list_p)
-        logger.info(f"Upper bound stability for p: {list_upper_bound_stability}")
-        excel_content["Upper Bound Stability"] = {
-            "p": list_p,
+    with measure_time("Runtime: Upper bound stability for each distortion"):
+        list_distortion = list(range(21))
+        list_upper_bound_stability = p_stability.run_upper_bound_stability(
+            list_distortion
+        )
+        logger.info(
+            f"Upper bound stability for distortion: {list_upper_bound_stability}"
+        )
+        excel_content["Upper Bound stability"] = {
+            "distortion": list_distortion,
             "stability": list_upper_bound_stability,
         }
-
-    with measure_time("Runtime: Crisped Stability for p"):
-        list_p = list(range(max_p + 1))
-        list_crisped_stability = p_stability.run_crisped_stability(list_p)
-        logger.info(f"Crisped stabilityclassification score: {list_crisped_stability}")
-        excel_content["Crisped Stability(lower)"] = {
-            "p": list_p,
-            "Crisped Miss": list_crisped_stability,
+    with measure_time("Runtime: Exact distortion for each stability"):
+        list_stability = [0, 1, 2]
+        list_exact_distortion = p_stability.run_exact_distortion(list_stability)
+        logger.info(f"Exact distortion: {list_exact_distortion}")
+        excel_content["Exact Missclasdistortionifications"] = {
+            "stability": list_stability,
+            "distortion": list_exact_distortion,
         }
 
-    with measure_time("Runtime: Fuzzy Stability for p"):
-        list_p = list(range(max_p + 1))
-        list_fuzzy_stability = p_stability.run_fuzzy_stability(list_p)
-        list_fuzzy_stability = [
-            round(fuzzy_stability, 2) for fuzzy_stability in list_fuzzy_stability
+    with measure_time("Runtime: Lower bound distortion for each stability"):
+        list_stability = list(range(max_stability + 1))
+        list_lower_bound_distortion = p_stability.run_lower_bound_distortion(
+            list_stability
+        )
+        logger.info(
+            f"Lower bound distortion for stability: {list_lower_bound_distortion}"
+        )
+        excel_content["Lower Bound distortion"] = {
+            "stability": list_stability,
+            "distortion": list_lower_bound_distortion,
+        }
+
+    with measure_time("Runtime: Better lower bound distortion for each stability"):
+        list_stability = list(range(max_stability + 1))
+        list_better_lower_bound_distortion = (
+            p_stability.run_better_lower_bound_distortion(list_stability)
+        )
+        logger.info(
+            f"Better lower bound distortion for stability: {list_better_lower_bound_distortion}"
+        )
+        excel_content["Better Lower Bound distortion"] = {
+            "stability": list_stability,
+            "distortion": list_better_lower_bound_distortion,
+        }
+
+    with measure_time("Runtime: Upper bound distortion for each stability"):
+        list_stability = list(range(max_stability + 1))
+        list_upper_bound_distortion = p_stability.run_upper_bound_distortion(
+            list_stability
+        )
+        logger.info(
+            f"Upper bound distortion for stability: {list_upper_bound_distortion}"
+        )
+        excel_content["Upper Bound distortion"] = {
+            "stability": list_stability,
+            "distortion": list_upper_bound_distortion,
+        }
+
+    with measure_time("Runtime: Crisped distortion for stability"):
+        list_stability = list(range(max_stability + 1))
+        list_crisped_distortion = p_stability.run_crisped_distortion(list_stability)
+        logger.info(
+            f"Crisped distortionclassification score: {list_crisped_distortion}"
+        )
+        excel_content["Crisped distortion(lower)"] = {
+            "stability": list_stability,
+            "Crisped Miss": list_crisped_distortion,
+        }
+
+    with measure_time("Runtime: Fuzzy distortion for stability"):
+        list_stability = list(range(max_stability + 1))
+        list_fuzzy_distortion = p_stability.run_fuzzy_distortion(list_stability)
+        list_fuzzy_distortion = [
+            round(fuzzy_distortion, 2) for fuzzy_distortion in list_fuzzy_distortion
         ]
-        logger.info(f"Fuzzy stability score: {list_fuzzy_stability}")
-        excel_content["Fuzzy Stability(upper)"] = {
-            "p": list_p,
-            "Fuzzy Stability": list_fuzzy_stability,
+        logger.info(f"Fuzzy distortion score: {list_fuzzy_distortion}")
+        excel_content["Fuzzy distortion(upper)"] = {
+            "stability": list_stability,
+            "Fuzzy distortion": list_fuzzy_distortion,
         }
     save_jsonl("p_stability", {"dataset": dataset, "results": excel_content})
     plot_bounds(excel_content, dataset, show_plot=False, save_plot=True)
-    # save_to_excel(excel_content, f"p_stability {dataset} tmp", mode="horizontal")
+    save_to_excel(excel_content, f"p_stability {dataset} tmp", mode="horizontal")
 
 
 if __name__ == "__main__":

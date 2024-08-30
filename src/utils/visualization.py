@@ -110,51 +110,53 @@ def plot_algorithm_results(
 
 def plot_bounds(results: dict, dataset: str, save_plot=False, show_plot=True):
     # Plot the bounds
-    exact_p = results["Exact p"]
-    lower_bound_p = results["Lower Bound p"]
-    better_upper_bound_p = results["Better Upper Bound p"]
-    better_lower_bound_stability = results["Better Lower Bound Stability"]
-    upper_bound_stability = results["Upper Bound Stability"]
+    exact_stability = results["Exact stability"]
+    better_lower_bound_distortion = results["Better Lower Bound distortion"]
+    upper_bound_distortion = results["Upper Bound distortion"]
 
     # Create a square plot
-    plt.figure(figsize=(18, 18))  # Set the figure size to 8x8 inches (square)
+    plt.figure(figsize=(12, 12))  # Set the figure size to 12x12 inches (square)
 
-    # P is X-axis, stability is Y-axis
+    # P is X-axis, distortion is Y-axis
     plt.plot(
-        exact_p["p"], exact_p["stability"], label="Exact p", linewidth=2, linestyle="-"
+        exact_stability["stability"],
+        exact_stability["distortion"],
+        label="Exact stability",
+        linewidth=2,
+        linestyle="-",
     )
     plt.plot(
-        lower_bound_p["p"],
-        lower_bound_p["stability"],
-        label="Lower Bound p",
+        better_lower_bound_distortion["stability"],
+        better_lower_bound_distortion["distortion"],
+        label="Better Lower Bound distortion",
         linewidth=2,
         linestyle="--",
     )
     plt.plot(
-        better_upper_bound_p["p"],
-        better_upper_bound_p["stability"],
-        label="Better Upper Bound p",
+        upper_bound_distortion["stability"],
+        upper_bound_distortion["distortion"],
+        label="Upper Bound distortion",
         linewidth=2,
         linestyle=":",
     )
-    plt.plot(
-        better_lower_bound_stability["p"],
-        better_lower_bound_stability["stability"],
-        label="Better Lower Bound Stability",
-        linewidth=2,
-        linestyle="-.",
-    )
-    plt.plot(
-        upper_bound_stability["p"],
-        upper_bound_stability["stability"],
-        label="Upper Bound Stability",
-        linewidth=2,
-        linestyle=(0, (3, 1, 1, 1)),
-    )
+    # plt.plot(
+    #     better_lower_bound_stability["p"],
+    #     better_lower_bound_stability["stability"],
+    #     label="Better Lower Bound Stability",
+    #     linewidth=2,
+    #     linestyle="-.",
+    # )
+    # plt.plot(
+    #     upper_bound_stability["p"],
+    #     upper_bound_stability["stability"],
+    #     label="Upper Bound Stability",
+    #     linewidth=2,
+    #     linestyle=(0, (3, 1, 1, 1)),
+    # )
 
-    plt.xlabel("p")
-    plt.ylabel("Stability")
-    plt.title(f"Bounds for p and Stability on {dataset}")
+    plt.xlabel("stability")
+    plt.ylabel("distortion")
+    plt.title(f"Bounds for distortion of stability on {dataset}")
     plt.legend()
 
     # Save the plot

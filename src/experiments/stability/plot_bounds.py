@@ -6,7 +6,7 @@ logging.getLogger("matplotlib").setLevel(logging.WARNING)
 import matplotlib.pyplot as plt
 
 
-result = load_lines_in_range_jsonl("p_stability", -1)
+result = load_lines_in_range_jsonl("p_distortion", -1)
 dataset = result["dataset"]
 results = result["results"]
 

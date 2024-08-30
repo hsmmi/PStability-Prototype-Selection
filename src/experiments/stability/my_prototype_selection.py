@@ -29,7 +29,7 @@ dataset_list = [
 ]
 
 
-def run_p(p: int):
+def run_stability(stability: int):
     excel_content = {}
 
     prototype_selection = PrototypeSelection()
@@ -49,7 +49,7 @@ def run_p(p: int):
 
             prototype_selection.fit(X_train, y_train)
 
-            result = prototype_selection.prototype_reduction(p)
+            result = prototype_selection.prototype_reduction(stability)
 
             removed_prototypes = result["removed_prototypes"]
             base_objective_function = result["base_objective_function"]
@@ -98,10 +98,12 @@ def run_p(p: int):
         pre_val = excel_total.get(
             "Prototype Selection " + dataset, {"#Removed": list(range(len(X)))}
         )
-        pre_val[f"Accuracy {p}"] = accuracy
+        pre_val[f"Accuracy {stability}"] = accuracy
         excel_total["Prototype Selection " + dataset] = pre_val
     save_to_excel(
-        excel_content, f"prototype_selection acc test p={p} tmp", "horizontal"
+        excel_content,
+        f"prototype_selection acc test stability={stability} tmp",
+        "horizontal",
     )
     logger.info("Results are saved to excel.")
 
@@ -113,14 +115,14 @@ def run_p(p: int):
             value[key2] = value2[:min_len]
         # Add reductaion rate
         value["Reduction Rate"] = [
-            f"{(removed/(min_len+p-1)):.2%}" for removed in range(min_len)
+            f"{(removed/(min_len+stability-1)):.2%}" for removed in range(min_len)
         ]
 
     save_to_excel(
-        excel_total, f"prototype_selection acc test total {p} tmp", "horizontal"
+        excel_total, f"prototype_selection acc test total {stability} tmp", "horizontal"
     )
 
 
 if __name__ == "__main__":
-    for p in tqdm(p_list, desc="P progress", leave=False):
-        run_p(p)
+    for stability in tqdm(p_list, desc="stability progress", leave=False):
+        run_stability(stability)
