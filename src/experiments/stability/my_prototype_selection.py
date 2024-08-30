@@ -5,6 +5,7 @@ from tqdm import tqdm
 from src.algorithms.stability.my_prototype_selection import PrototypeSelection
 from src.utils.excel import save_to_excel
 from config.log import get_logger
+from src.utils.data_preprocessing import load_data
 
 logger = get_logger("mylogger")
 logger.setLevel("WARNING")
@@ -15,108 +16,111 @@ knn = KNeighborsClassifier(n_neighbors=n_neighbors)
 p_list = [1, 3, 5, 7, 9, 11]
 excel_total = {}
 
+dataset_list = [
+    "circles_0.05_undersampled",
+    "moons_0.15_undersampled",
+    "iris_undersampled",
+    "wine_undersampled",
+    "iris_0_1",
+    "iris_0_2",
+    "iris_1_2",
+    "iris",
+    "wine",
+]
+
+
+def run_p(p: int):
+    excel_content = {}
+
+    prototype_selection = PrototypeSelection()
+
+    for dataset in tqdm(dataset_list, desc="Datasets progress", leave=False):
+        X, y = load_data(dataset)
+
+        kf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=42)
+
+        results = {"objective_functions": [], "accuracy": []}
+        min_len = len(X)
+        for train_index, test_index in tqdm(
+            kf.split(X, y), total=n_folds, desc="K-Fold progress", leave=False
+        ):
+            X_train, y_train = X[train_index], y[train_index]
+            X_test, y_test = X[test_index], y[test_index]
+
+            prototype_selection.fit(X_train, y_train)
+
+            result = prototype_selection.prototype_reduction(p)
+
+            removed_prototypes = result["removed_prototypes"]
+            base_objective_function = result["base_objective_function"]
+            idx_min_objective_function = result["idx_min_objective_function"]
+            last_idx_under_base = result["last_idx_under_base"]
+
+            accuracy = []
+
+            remain_prototypes = list(range(len(X_train)))
+            for idx in removed_prototypes:
+                if idx != -1:
+                    remain_prototypes.remove(idx)
+                # Fit model
+                knn.fit(X_train[remain_prototypes], y_train[remain_prototypes])
+                # score test
+                accuracy.append(knn.score(X_test, y_test))
+
+            results["#Removed Prototypes"] = removed_prototypes
+            results["objective_functions"].append(result["objective_functions"])
+            results["reduction_rate"] = result["reduction_rate"]
+            results["accuracy"].append(accuracy)
+
+            min_len = min(min_len, len(result["objective_functions"]))
+
+        objective_functions = [  # make all lists the same length
+            obj_fun[:min_len] for obj_fun in results["objective_functions"]
+        ]
+        accuracy = [acc[:min_len] for acc in results["accuracy"]]
+        removed_prototypes = results["#Removed Prototypes"][:min_len]
+        reduction_rate = results["reduction_rate"][:min_len]
+
+        objective_function = np.mean(objective_functions, axis=0)
+        accuracy = np.mean(accuracy, axis=0)
+
+        objective_function = [round(score, 2) for score in objective_function]
+        accuracy = [f"{acc:.2%}" for acc in accuracy]
+        reduction_rate = [f"{rate:.2%}" for rate in reduction_rate]
+
+        excel_content["Prototype Selection " + dataset] = {
+            "#Removed": range(len(removed_prototypes)),
+            "#Removed Prototypes": removed_prototypes,
+            "Objective Function": objective_function,
+            "Accuracy": accuracy,
+            "Reduction Rate": reduction_rate,
+        }
+        pre_val = excel_total.get(
+            "Prototype Selection " + dataset, {"#Removed": list(range(len(X)))}
+        )
+        pre_val[f"Accuracy {p}"] = accuracy
+        excel_total["Prototype Selection " + dataset] = pre_val
+    save_to_excel(
+        excel_content, f"prototype_selection acc test p={p} tmp", "horizontal"
+    )
+    logger.info("Results are saved to excel.")
+
+    for key, value in excel_total.items():
+        if value.get("Reduction Rate") is not None:
+            value.pop("Reduction Rate")
+        min_len = min([len(val) for val in value.values()])
+        for key2, value2 in value.items():
+            value[key2] = value2[:min_len]
+        # Add reductaion rate
+        value["Reduction Rate"] = [
+            f"{(removed/(min_len+p-1)):.2%}" for removed in range(min_len)
+        ]
+
+    save_to_excel(
+        excel_total, f"prototype_selection acc test total {p} tmp", "horizontal"
+    )
+
+
 if __name__ == "__main__":
-    dataset_list = [
-        "circles_0.05_undersampled",
-        "moons_0.15_undersampled",
-        "iris_undersampled",
-        "wine_undersampled",
-        "iris_0_1",
-        "iris_0_2",
-        "iris_1_2",
-        "iris",
-        "wine",
-    ]
-
-    from src.utils.data_preprocessing import load_data
-
     for p in tqdm(p_list, desc="P progress", leave=False):
-        excel_content = {}
-
-        prototype_selection = PrototypeSelection()
-
-        for DATASET in tqdm(dataset_list, desc="Datasets progress", leave=False):
-            X, y = load_data(DATASET)
-
-            kf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=42)
-
-            results = {"objective_functions": [], "accuracy": []}
-            min_len = len(X)
-            for train_index, test_index in tqdm(
-                kf.split(X, y), total=n_folds, desc="K-Fold progress", leave=False
-            ):
-                X_train, y_train = X[train_index], y[train_index]
-                X_test, y_test = X[test_index], y[test_index]
-
-                prototype_selection.fit(X_train, y_train)
-
-                result = prototype_selection.prototype_reduction(p)
-
-                removed_prototypes = result["removed_prototypes"]
-                base_objective_function = result["base_objective_function"]
-                idx_min_objective_function = result["idx_min_objective_function"]
-                last_idx_under_base = result["last_idx_under_base"]
-
-                accuracy = []
-
-                remain_prototypes = list(range(len(X_train)))
-                for idx in removed_prototypes:
-                    if idx != -1:
-                        remain_prototypes.remove(idx)
-                    # Fit model
-                    knn.fit(X_train[remain_prototypes], y_train[remain_prototypes])
-                    # score test
-                    accuracy.append(knn.score(X_test, y_test))
-
-                results["#Removed Prototypes"] = removed_prototypes
-                results["objective_functions"].append(result["objective_functions"])
-                results["reduction_rate"] = result["reduction_rate"]
-                results["accuracy"].append(accuracy)
-
-                min_len = min(min_len, len(result["objective_functions"]))
-
-            objective_functions = [  # make all lists the same length
-                obj_fun[:min_len] for obj_fun in results["objective_functions"]
-            ]
-            accuracy = [acc[:min_len] for acc in results["accuracy"]]
-            removed_prototypes = results["#Removed Prototypes"][:min_len]
-            reduction_rate = results["reduction_rate"][:min_len]
-
-            objective_function = np.mean(objective_functions, axis=0)
-            accuracy = np.mean(accuracy, axis=0)
-
-            objective_function = [round(score, 2) for score in objective_function]
-            accuracy = [f"{acc:.2%}" for acc in accuracy]
-            reduction_rate = [f"{rate:.2%}" for rate in reduction_rate]
-
-            excel_content["Prototype Selection " + DATASET] = {
-                "#Removed": range(len(removed_prototypes)),
-                "#Removed Prototypes": removed_prototypes,
-                "Objective Function": objective_function,
-                "Accuracy": accuracy,
-                "Reduction Rate": reduction_rate,
-            }
-            pre_val = excel_total.get(
-                "Prototype Selection " + DATASET, {"#Removed": list(range(len(X)))}
-            )
-            pre_val[f"Accuracy {p}"] = accuracy
-            excel_total["Prototype Selection " + DATASET] = pre_val
-        save_to_excel(
-            excel_content, f"prototype_selection acc test p={p} tmp", "horizontal"
-        )
-        logger.info("Results are saved to excel.")
-
-        for key, value in excel_total.items():
-            if value.get("Reduction Rate") is not None:
-                value.pop("Reduction Rate")
-            min_len = min([len(val) for val in value.values()])
-            for key2, value2 in value.items():
-                value[key2] = value2[:min_len]
-            # Add reductaion rate
-            value["Reduction Rate"] = [
-                f"{(removed/(min_len+p-1)):.2%}" for removed in range(min_len)
-            ]
-
-        save_to_excel(
-            excel_total, f"prototype_selection acc test total {p} tmp", "horizontal"
-        )
+        run_p(p)

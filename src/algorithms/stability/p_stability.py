@@ -49,7 +49,7 @@ class PStability(KNN):
         list[Tuple[int, float]]
             The (index, score) pairs for each instance.
         """
-        friends = self.compute_all_firends()
+        friends = self.compute_all_friends()
         train_indices = np.where(self.mask_train)[0]
         scores = []
         # find the score for each training instance
@@ -184,6 +184,10 @@ class PStability(KNN):
         if stability < 0:
             return -1
 
+        if start_index >= self.n_samples:
+            # can't continue return invalid value to prevent update
+            return self.n_samples + 1
+
         if stability == 0:
             idx_min_friends, friends = self.find_instance_with_min_friends(start_index)
             if idx_min_friends == -1:
@@ -203,11 +207,15 @@ class PStability(KNN):
                 changes = self.remove_nearest_friends(idx, update_nearest_enemy=False)
                 change_stability = len(changes["classify_incorrect"])
 
+                # # Optimization: Not gonna improve anyway
+                # if len(changes["friends"]) > max_p:
+                #     continue
+
                 res_max_p = self.find_exact_p(stability - change_stability, idx + 1)
                 if res_max_p != -1:
                     max_p = min(max_p, res_max_p + len(changes["friends"]))
                 else:
-                    # Stability becشme less than zerp
+                    # Stability became less than zero
                     max_p = min(max_p, len(changes["friends"]) - 1)
 
                 self.put_back_nearest_friends(changes)
@@ -272,6 +280,7 @@ class PStability(KNN):
             len_class_i = len(number_of_friends_sorted_classes[i])
             for j in range(stability + 2):
                 for x in range(min(j + 1, len_class_i)):
+                    # Miss x instance from class i of total j miss and j - x from forst i - 1 class
                     dp[i][j] = min(
                         dp[i][j],
                         dp[i - 1][j - x] + number_of_friends_sorted_classes[i][x],
@@ -473,7 +482,7 @@ class PStability(KNN):
         """
         lower_bound = 0
         sum_friends = 0
-        for i in range(self.n_samples):
+        for i in range(self.n_samples - self.n_misses):
             sum_friends += self.number_of_friends_sorted_index[i][1]
             if sum_friends > p:
                 break
@@ -587,7 +596,7 @@ class PStability(KNN):
             for j in range(p + 1):
                 class_miss = 0
                 len_class_i = len(number_of_friends_sorted_classes[i])
-                for x in range(min(j, len_class_i) + 1):
+                for x in range(j + 1):
                     while (
                         class_miss < len_class_i
                         and number_of_friends_sorted_classes[i][class_miss] <= x
@@ -597,7 +606,7 @@ class PStability(KNN):
                     dp[i][j] = max(dp[i][j], dp[i - 1][j - x] + class_miss)
 
         return (
-            int(dp[self.n_classes][p]) if dp[self.n_classes][p] != float("inf") else -1
+            int(dp[self.n_classes][p]) if dp[self.n_classes][p] != float("-inf") else -1
         )
 
     def run_upper_bound_stability(self, list_p: list[int]) -> list[int]:
@@ -716,5 +725,5 @@ class PStability(KNN):
             or a single result if list_p is an integer
         """
         self.sorted_fuzzy_score_teain = self.find_sorted_fuzzy_score_teain()
-        self.friends = self.compute_all_firends()
+        self.friends = self.compute_all_friends()
         return self._run(p_list, self.find_crisped_stability)

@@ -42,7 +42,7 @@ class PStability(KNN):
         list[Tuple[int, float]]
             The (index, score) pairs for each instance.
         """
-        friends = self.compute_all_firends()
+        friends = self.compute_all_friends()
         train_indices = np.where(self.mask_train)[0]
         scores = []
         # find the score for each training instance
@@ -406,7 +406,7 @@ class PStability(KNN):
     ####################################################################################
 
     def find_sorted_fuzzy_score_teain(self) -> list[Tuple[int, float]]:
-        friends = self.compute_all_firends()
+        friends = self.compute_all_friends()
         train_indices = np.where(self.mask_train)[0]
         scores = []
         for idx in train_indices:
@@ -428,7 +428,7 @@ class PStability(KNN):
         return fuzzy_score
 
     def find_crisped_stability(self, p: int) -> int:
-        friends = self.compute_all_firends()
+        friends = self.compute_all_friends()
         sorted_fuzzy_score_teain = self.find_sorted_fuzzy_score_teain()
         removed_sample = set(sorted_fuzzy_score_teain[i][0] for i in range(p))
         crisped_stability = 0

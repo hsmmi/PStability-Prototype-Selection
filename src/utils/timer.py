@@ -20,4 +20,6 @@ def measure_time(label="Execution time", level="INFO"):
     yield
     end_time = time.time()
     execution_time = end_time - start_time
-    logger.log(level, f"{label}: {execution_time:.6f} seconds")
+    logger.log(
+        level, f"{label}: {execution_time:.6f} seconds", extra={"use_tqdm": True}
+    )

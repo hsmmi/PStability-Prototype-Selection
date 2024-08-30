@@ -251,7 +251,7 @@ class KNN:
 
         return friends_list
 
-    def compute_all_firends(self) -> list[list[int]]:
+    def compute_all_friends(self) -> list[list[int]]:
         """
         Find the friends for each instance test(whole dataset) in train data(mask data).
 
@@ -629,8 +629,8 @@ class KNN:
         self.n_misses = self.n_samples - np.sum(self.classify_correct)
         self.n_misses_initial = self.n_misses
 
-        logger.info("Nearest neighbours and enemies set.")
-        logger.info("Model fitting complete.")
+        logger.debug("Nearest neighbours and enemies set.")
+        logger.debug("Model fitting complete.")
         return self
 
     def accuracy(self) -> float:
