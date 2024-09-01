@@ -52,7 +52,7 @@ class PrototypeSelection(PStability):
         float
             Total objective function value.
         """
-        fuzzy_stability = self.run_fuzzy_stability(p)
+        fuzzy_stability = self.run_fuzzy_distortion(p)
         return fuzzy_stability + self.n_misses
 
     def find_best_prototype(self, p: int) -> Tuple[int, float]:

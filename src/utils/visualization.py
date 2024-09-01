@@ -115,11 +115,26 @@ def plot_bounds(results: dict, dataset: str, save_plot=False, show_plot=True):
     same_friend_distortion = results["same friend distortion"]
     fuzzy_distortion = results["Fuzzy distortion(upper)"]
     binary_distortion = results["binary distortion(lower)"]
+    unique_friend_distortion = results["unique friend distortion"]
 
     # Create a square plot
     plt.figure(figsize=(12, 12))  # Set the figure size to 12x12 inches (square)
 
     # P is X-axis, distortion is Y-axis
+    plt.plot(
+        same_friend_distortion["stability"],
+        same_friend_distortion["distortion"],
+        label="same friend distortion",
+        linewidth=2,
+        linestyle=":",
+    )
+    plt.plot(
+        fuzzy_distortion["stability"],
+        fuzzy_distortion["distortion"],
+        label="fuzzy distortion",
+        linewidth=2,
+        linestyle="-.",
+    )
     plt.plot(
         exact_stability["stability"],
         exact_stability["distortion"],
@@ -135,23 +150,16 @@ def plot_bounds(results: dict, dataset: str, save_plot=False, show_plot=True):
         linestyle="--",
     )
     plt.plot(
-        same_friend_distortion["stability"],
-        same_friend_distortion["distortion"],
-        label="same friend distortion",
+        unique_friend_distortion["stability"],
+        unique_friend_distortion["distortion"],
+        label="unique friend distortion",
         linewidth=2,
-        linestyle=":",
-    )
-    plt.plot(
-        fuzzy_distortion["stability"],
-        fuzzy_distortion["distortion"],
-        label="Better same friend distortion",
-        linewidth=2,
-        linestyle="-.",
+        linestyle=(0, (5, 2)),
     )
     plt.plot(
         binary_distortion["stability"],
         binary_distortion["distortion"],
-        label="unique friend distortion",
+        label="binary distortion",
         linewidth=2,
         linestyle=(0, (3, 1, 1, 1)),
     )

@@ -20,7 +20,7 @@ class PStability(KNN):
         """
         super().__init__(metric)
         self.initial_classify_correct = None
-        self.sorted_fuzzy_score_teain: list[Tuple[int, float]] = None
+        self.sorted_fuzzy_score_train: list[Tuple[int, float]] = None
 
     def calculate_distortion(self) -> int:
         """
@@ -39,7 +39,7 @@ class PStability(KNN):
         # Sum initial classification correct and current classification incorrect
         return sum(self.initial_classify_correct & ~self.classify_correct)
 
-    def find_fuzzy_score_teain(self) -> list[Tuple[int, float]]:
+    def find_fuzzy_score_train(self) -> list[Tuple[int, float]]:
         """
         Calculate the fuzzy misclassification score for each training instance. Which is based on
         friends of test instances on the training instances.
@@ -51,22 +51,23 @@ class PStability(KNN):
         """
         friends = self.compute_all_friends()
         train_indices = np.where(self.mask_train)[0]
-        scores = []
-        # find the score for each training instance
-        for idx in train_indices:
-            score = 0
-            # Calculate the score for the instance
-            # If the instance is in the friends of the other instances with friend size L,
-            # then it gets 1/L score from that instance.
-            for idx2 in range(self.n_samples):
-                if len(friends[idx2]) == 0:
-                    continue
-                if idx in friends[idx2]:
-                    score += 1 / len(friends[idx2])
-            scores.append((idx, score))
+        scores_idx = np.full(self.n_samples, -1)
+        scores_idx[train_indices] = np.arange(len(train_indices))
+        scores = [0 for _ in range(len(train_indices))]
+
+        # For each sample in test data
+        for idx in range(self.n_samples):
+            len_friends = len(friends[idx])
+            # Add fuzzy score to each of it's friends
+            for idx2 in friends[idx]:
+                if scores_idx[idx2] != -1:
+                    scores[scores_idx[idx2]] += 1 / len_friends
+        for idx in range(len(scores)):
+            scores[idx] = (train_indices[idx], scores[idx])
+
         return scores
 
-    def find_max_fuzzy_score_teain(self) -> Tuple[int, float]:
+    def find_max_fuzzy_score_train(self) -> Tuple[int, float]:
         """
         Find the instance with the maximum fuzzy misclassification score.
 
@@ -76,14 +77,14 @@ class PStability(KNN):
             The (index, score) pair for the instance with the
             maximum fuzzy misclassification score.
         """
-        scores = self.find_fuzzy_score_teain()
+        scores = self.find_fuzzy_score_train()
         max_idx, max_score = -1, -1
         for idx, score in scores:
             if score > max_score:
                 max_idx, max_score = idx, score
         return max_idx, max_score
 
-    def find_sorted_fuzzy_score_teain(self) -> list[Tuple[int, float]]:
+    def find_sorted_fuzzy_score_train(self) -> list[Tuple[int, float]]:
         """
         Calculate the fuzzy misclassification score for each
         training instance and sort them in descending order.
@@ -93,7 +94,7 @@ class PStability(KNN):
         list[Tuple[int, float]]
             The (index, score) pairs for each instance sorted in descending order of score.
         """
-        scores = self.find_fuzzy_score_teain()
+        scores = self.find_fuzzy_score_train()
         scores.sort(key=lambda x: x[1], reverse=True)
 
         return scores
@@ -659,7 +660,7 @@ class PStability(KNN):
         # Remove the stability instances with the highest score
         fuzzy_score = 0
         for i in range(stability):
-            fuzzy_score += self.sorted_fuzzy_score_teain[i][1]
+            fuzzy_score += self.sorted_fuzzy_score_train[i][1]
         return fuzzy_score
 
     def run_fuzzy_distortion(self, p_list: list[int] | int) -> list[float] | float:
@@ -680,7 +681,7 @@ class PStability(KNN):
             List of maximum fuzzy distortion score for each stability value in list_stability
             or a single result if list_stability is an integer
         """
-        self.sorted_fuzzy_score_teain = self.find_sorted_fuzzy_score_teain()
+        self.sorted_fuzzy_score_train = self.find_sorted_fuzzy_score_train()
         return self._run(p_list, self.find_fuzzy_distortion)
 
     def find_binary_distortion(self, stability: int) -> int:
@@ -704,7 +705,7 @@ class PStability(KNN):
         """
         # Remove the stability instances with the highest score
         removed_sample = set(
-            self.sorted_fuzzy_score_teain[i][0] for i in range(stability)
+            self.sorted_fuzzy_score_train[i][0] for i in range(stability)
         )
 
         # Check each sample if all it's friends remove to count as binary
@@ -734,6 +735,6 @@ class PStability(KNN):
             List of maximum binary distortion score for each stability value in list_stability
             or a single result if list_stability is an integer
         """
-        self.sorted_fuzzy_score_teain = self.find_sorted_fuzzy_score_teain()
+        self.sorted_fuzzy_score_train = self.find_sorted_fuzzy_score_train()
         self.friends = self.compute_all_friends()
         return self._run(p_list, self.find_binary_distortion)
