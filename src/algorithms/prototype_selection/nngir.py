@@ -124,7 +124,7 @@ class NNGIR(BaseAlgorithm):
             if distance > self._distance_to_nearest_enemy(idx):
                 self.border_instances.append(idx)
 
-        self.border_instances = np.array(self.border_instances)
+        self.border_instances = np.array(self.border_instances, dtype=int)
 
     def _fit(self) -> np.ndarray:
         self.S = np.arange(self.X.shape[0])

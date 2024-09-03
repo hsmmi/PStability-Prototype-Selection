@@ -80,7 +80,28 @@ class PrototypeSelection(PStability):
             self.put_back_point(idx, changed)
         return min_idx, min_objective_function
 
-    def prototype_reduction(self, p: int, stop_condition: str = "all") -> dict:
+    def extract_percentage(self, stop_condition: str) -> float:
+        """
+        Extract the percentage from the stop condition.
+
+        Parameters
+        ----------
+        stop_condition : str
+            The condition to stop removing prototypes.
+
+        Returns
+        -------
+        float
+            The percentage value extracted.
+        """
+        if len(stop_condition) == 0:
+            return 0
+        percentage = float(stop_condition) / 100
+        if percentage < 0 or percentage > 1:
+            raise ValueError("Invalid percentage")
+        return percentage
+
+    def prototype_reduction(self, p: int, stop_condition: str = "acdr") -> dict:
         """
         The order of prototypes to remove based on p-stability.
 
@@ -89,7 +110,7 @@ class PrototypeSelection(PStability):
         p : int
             p-stability parameter to use.(For fuzzy stability score)
 
-        stop_condition : str (default="all")
+        stop_condition : str (default="acdr")
             The condition to stop removing prototypes.
 
             - "xx.xx%": Remove xx.xx% of the prototypes.(Reduction rate)
@@ -103,6 +124,8 @@ class PrototypeSelection(PStability):
             - "all": Remove all prototypes.
 
             - "xx.xxacdr": Remove prototypes until the accuracy drops by xx.xx.
+
+            - "min_objective_function": Remove until the minimum objective function
 
             If remaining prototypes are less than p, then it will stop.
 
@@ -143,18 +166,22 @@ class PrototypeSelection(PStability):
 
         n_remove = 0
         if stop_condition[-1] == "%":
-            n_remove = int(self.n_samples * (1 - float(stop_condition[:-1]) / 100))
+            n_remove = int(
+                self.n_samples * (100 - self.extract_percentage(stop_condition[:-1]))
+            )
         elif stop_condition[-1] == "pl":
-            n_remove = self.n_samples - int(stop_condition[:-1])
+            n_remove = self.n_samples - int(
+                self.extract_percentage(stop_condition[:-1])
+            )
         elif stop_condition[-1] == "pr":
-            n_remove = int(stop_condition[:-1])
+            n_remove = int(self.extract_percentage(stop_condition[:-1]))
         elif stop_condition == "one-class-left":
             n_remove = self.n_samples - size_one_class
         elif stop_condition == "all":
             n_remove = self.n_samples
         elif stop_condition[-4:] == "acdr":
             n_remove = self.n_samples
-            drop_allowed = float(stop_condition[:-4]) / 100
+            drop_allowed = self.extract_percentage(stop_condition[:-4])
             base_accuracy = self.accuracy()
         else:
             raise ValueError("Invalid stop_condition")
@@ -165,20 +192,23 @@ class PrototypeSelection(PStability):
             best_remove_idx, best_objective_function_after_remove = (
                 self.find_best_prototype(p)
             )
+            changes = self.remove_point(best_remove_idx, update_nearest_enemy=True)
+
             if best_objective_function_after_remove <= min_objective_function:
                 min_objective_function = best_objective_function_after_remove
                 idx_min_objective_function = idx
             if best_objective_function_after_remove < base_objective_function:
                 last_idx_under_base = idx
-            removed_prototypes.append(best_remove_idx)
-            objective_functions.append(best_objective_function_after_remove)
-            changes = self.remove_point(best_remove_idx, update_nearest_enemy=True)
-            accuracy.append(self.accuracy())
-            reduction_rate.append(self.reduction_rate())
+
             list_changes.append(changes)
             if stop_condition[-4:] == "acdr":
-                if accuracy[-1] < base_accuracy - drop_allowed:
+                if self.accuracy() < base_accuracy - drop_allowed:
                     break
+            removed_prototypes.append(best_remove_idx)
+            objective_functions.append(best_objective_function_after_remove)
+            accuracy.append(self.accuracy())
+            reduction_rate.append(self.reduction_rate())
+
         # put back points
         for idx in range(len(removed_prototypes) - 1, 0, -1):
             self.put_back_point(removed_prototypes[idx], list_changes[idx - 1])
@@ -201,7 +231,7 @@ class PrototypeSelection(PStability):
 
         return ret
 
-    def prototype_selection(self, p: int) -> list[int]:
+    def prototype_selection(self, p: int, stop_condition: str = "acdr") -> list[int]:
         """
         Select prototypes based on p-stability.
 
@@ -212,10 +242,13 @@ class PrototypeSelection(PStability):
         p : int
             p-stability parameter to use.(For fuzzy stability)
 
+        stop_condition : str (default="all")
+
+
         Returns
         -------
         list[int]
-            List of prototypes selected.
+            List of indices of the remaining prototypes.
         """
         result = self.prototype_reduction(p)
         removed_prototypes = result["removed_prototypes"]
@@ -223,3 +256,23 @@ class PrototypeSelection(PStability):
             np.arange(self.n_samples), removed_prototypes
         )
         return remaining_prototypes
+
+    def fit_transform(self, X: np.ndarray, y: np.ndarray, p: int = 1) -> np.ndarray:
+        """
+        Fit the model using the training data and return the reduced dataset.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Training data.
+        y : np.ndarray
+            Target values.
+
+        Returns
+        -------
+        np.ndarray
+            Reduced dataset.
+        """
+        self.fit(X, y)
+        remaining_indices = self.prototype_selection(p)
+        return X[remaining_indices], y[remaining_indices]

@@ -2,7 +2,7 @@ import pandas as pd
 from config import LOG_PATH
 
 
-def save_to_excel(results: dict, file_name: str, mode: str = "new_sheet") -> None:
+def save_to_excel(results: dict, file_name: str, mode: str = "horizontal") -> None:
     """
     Save a dictionary of results to an Excel file.
 
@@ -30,7 +30,7 @@ def save_to_excel(results: dict, file_name: str, mode: str = "new_sheet") -> Non
         Name of the file to save the results.
     mode : str, optional
         Mode to save the results: "new_sheet", "horizontal", or "vertical".
-        Default is "new_sheet".
+        Default is "horizontal".
     """
     file_name = LOG_PATH + file_name + ".xlsx"
 

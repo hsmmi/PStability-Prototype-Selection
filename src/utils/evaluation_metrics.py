@@ -6,6 +6,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import StratifiedKFold
 from tqdm import tqdm
 from config import RANDOM_SEED
+from src.algorithms.stability.p_stability import PStability
 
 
 # Compare different prororype selection with n-fold cross validation
@@ -46,13 +47,21 @@ def compare_prototype_selection(
         knn.fit(X_train, y_train)
 
         # Evaluate the classifier
-        y_pred = knn.predict(X_test)
-        accuracy = accuracy_score(y_test, y_pred)
+        accuracy_train = knn.score(X_train, y_train)
+        accuracy_test = knn.score(X_test, y_test)
+
+        p_stability = PStability(distance_metric)
+        p_stability.fit(X_train, y_train)
+        distorion = p_stability.run_fuzzy_distortion(1)
+        objective_function = distorion + p_stability.n_misses
 
         results["Original"].append(
             [
-                accuracy,
+                accuracy_train,
+                accuracy_test,
                 len(X_train),
+                distorion,
+                objective_function,
                 0,
                 0,
             ]
@@ -97,13 +106,33 @@ def compare_prototype_selection(
             knn_reduced.fit(X_reduced, y_reduced)
 
             # Evaluate the classifier
-            y_pred_reduced = knn_reduced.predict(X_test)
-            accuracy_reduced = accuracy_score(y_test, y_pred_reduced)
+            accuracy_reduced_train = knn_reduced.score(X_train, y_train)
+            accuracy_reduced_test = knn_reduced.score(X_test, y_test)
+
+            psm = PStability(distance_metric)
+            # psm.fit(X_reduced, y_reduced)
+
+            psm.fit(X_train, y_train)
+
+            # Remove prototypes
+            removed_indices = []
+            for idx in range(psm.X.shape[0]):
+                if np.any(np.all(psm.X[idx] == X_reduced, axis=1)):
+                    continue
+                removed_indices.append(idx)
+            for idx in removed_indices:
+                psm.remove_point(idx, update_nearest_enemy=True)
+
+            distorion_reduced = psm.run_fuzzy_distortion(1)
+            objective_function_reduced = distorion_reduced + psm.n_misses
 
             results[key].append(
                 [
-                    accuracy_reduced,
+                    accuracy_reduced_train,
+                    accuracy_reduced_test,
                     len(X_reduced),
+                    distorion_reduced,
+                    objective_function_reduced,
                     (1 - len(X_reduced) / len(X_train)),
                     end_time - start_time,
                 ]

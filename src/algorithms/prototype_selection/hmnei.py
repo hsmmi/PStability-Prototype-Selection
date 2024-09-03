@@ -16,20 +16,20 @@ class HMNEI(BaseAlgorithm):
         self.nearest_in_class = np.full((self.X_.shape[0], self.n_classes_), -1)
         # index of the nearest sample in the specified class
         for idx in range(self.X_.shape[0]):
-            for class_ in self.classes_:
+            for class_idx, class_ in enumerate(self.classes_):
                 class_indices = np.where(self.y_ == class_)[0]
                 if class_ == self.y_[idx]:
                     class_indices = np.delete(
                         class_indices, np.where(class_indices == idx)
                     )
                 nearest = np.argmin(self.pairwise_distance[idx][class_indices])
-                self.nearest_in_class[idx][class_] = class_indices[nearest]
+                self.nearest_in_class[idx][class_idx] = class_indices[nearest]
 
     def _set_hit_miss(self):
         self.hit, self.miss = np.zeros(self.X_.shape[0]), np.zeros(self.X_.shape[0])
         for idx in range(self.X_.shape[0]):
-            for class_ in self.classes_:
-                idx2 = self.nearest_in_class[idx][class_]
+            for class_idx, class_ in enumerate(self.classes_):
+                idx2 = self.nearest_in_class[idx][class_idx]
                 if self.y_[idx] == class_:
                     self.hit[idx2] += 1
                 else:
@@ -38,9 +38,11 @@ class HMNEI(BaseAlgorithm):
     def _set_class_count_weight(self):
         self.class_weights_ = np.zeros(self.n_classes_)
         self.class_counts = np.zeros(self.n_classes_)
-        for class_ in self.classes_:
-            self.class_counts[class_] = np.sum(self.y_ == class_)
-            self.class_weights_[class_] = self.class_counts[class_] / self.n_samples
+        for class_idx, class_ in enumerate(self.classes_):
+            self.class_counts[class_idx] = np.sum(self.y_ == class_)
+            self.class_weights_[class_idx] = (
+                self.class_counts[class_idx] / self.n_samples
+            )
 
     def _fit(self):
         S = np.arange(self.n_samples)
@@ -65,7 +67,7 @@ class HMNEI(BaseAlgorithm):
 
             # Rule R1
             for idx in range(self.X_.shape[0]):
-                class_idx = self.y_[idx]
+                class_idx = np.where(self.classes_ == self.y_[idx])[0]
                 if (self.class_weights_[class_idx] * self.miss[idx] + self.epsilon) > (
                     (1 - self.class_weights_[class_idx]) * self.hit[idx]
                 ):
@@ -92,8 +94,8 @@ class HMNEI(BaseAlgorithm):
                     and (self.hit[idx] + self.miss[idx] > 0)
                 ):
                     mask[idx] = True  # R3
-
-                if self.hit[idx] >= self.class_counts[self.y_[idx]] / 4:
+                class_idx = np.where(self.classes_ == self.y_[idx])[0]
+                if self.hit[idx] >= self.class_counts[class_idx] / 4:
                     mask[idx] = True  # R4
 
             S = S[mask]

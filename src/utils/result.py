@@ -100,10 +100,13 @@ def log_result(
     """
     formatted_result = {
         key: {
-            "Accuracy": round(result[key][0] * 100, 2),
-            "Size": result[key][1],
-            "Reduction": round(result[key][2] * 100, 2),
-            "Time": round(result[key][3], 3),
+            "Acc. Train": round(result[key][0] * 100, 2),
+            "Acc. Test": round(result[key][1] * 100, 2),
+            "Size": round(result[key][2], 2),
+            "Distortion": round(result[key][3], 2),
+            "Objective Function": round(result[key][4], 2),
+            "Reduction": round(result[key][5] * 100, 2),
+            "Time": round(result[key][6], 3),
         }
         for key in result
     }
@@ -119,16 +122,22 @@ def log_result(
                 [
                     key,
                     f"{result[key][0]:.2%}",
-                    result[key][1],
-                    f"{result[key][2]:.2%}",
-                    f"{result[key][3]:.3f}s",
+                    f"{result[key][1]:.2%}",
+                    f"{result[key][2]:.2f}",
+                    f"{result[key][3]:.2f}",
+                    f"{result[key][4]:.2f}",
+                    f"{result[key][5]:.2%}",
+                    f"{result[key][6]:.3f}s",
                 ]
             )
 
         headers = [
             "Algorithm",
-            "Accuracy",
+            "Acc. Train",
+            "Acc. Test",
             "Size",
+            "Distortion",
+            "Objective Function",
             "Reduction",
             "Time",
         ]
