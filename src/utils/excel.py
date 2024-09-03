@@ -1,3 +1,4 @@
+from src.utils.path import check_directory
 import pandas as pd
 from config import LOG_PATH
 
@@ -32,7 +33,11 @@ def save_to_excel(results: dict, file_name: str, mode: str = "horizontal") -> No
         Mode to save the results: "new_sheet", "horizontal", or "vertical".
         Default is "horizontal".
     """
+
     file_name = LOG_PATH + file_name + ".xlsx"
+
+    # Check if the directory exists, and create it if it does not
+    check_directory(file_name)
 
     with pd.ExcelWriter(file_name, engine="xlsxwriter") as writer:
         if mode == "new_sheet":

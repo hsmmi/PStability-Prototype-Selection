@@ -13,12 +13,12 @@ logger.setLevel("WARNING")
 n_folds = 5
 n_neighbors = 1
 knn = KNeighborsClassifier(n_neighbors=n_neighbors)
-p_list = [1, 3, 5, 7, 9, 11]
+stability_list = [1, 3, 5, 7, 9, 11]
 excel_total = {}
 
 dataset_list = [
-    "circles_0.05_undersampled",
-    "moons_0.15_undersampled",
+    "circles_0.05_150",
+    "moons_0.15_150",
     "iris_undersampled",
     "wine_undersampled",
     "iris_0_1",
@@ -124,5 +124,5 @@ def run_stability(stability: int):
 
 
 if __name__ == "__main__":
-    for stability in tqdm(p_list, desc="stability progress", leave=False):
+    for stability in tqdm(stability_list, desc="stability progress", leave=False):
         run_stability(stability)

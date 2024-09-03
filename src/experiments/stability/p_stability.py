@@ -23,7 +23,7 @@ def run_dataset(dataset: str):
     max_distortion = p_stability.n_samples - p_stability.n_misses
 
     with measure_time("Runtime: Exact stability for each distortion"):
-        list_distortion = list(range(10))
+        list_distortion = list(range(14))
         list_exact_stability = p_stability.run_exact_stability(list_distortion)
         logger.info(f"Exact stability: {list_exact_stability}")
         excel_content["Exact stability"] = {
@@ -114,7 +114,7 @@ def run_dataset(dataset: str):
         logger.info(f"binary distortionclassification score: {list_binary_distortion}")
         excel_content["binary distortion(lower)"] = {
             "stability": list_stability,
-            "binary Miss": list_binary_distortion,
+            "distortion": list_binary_distortion,
         }
 
     with measure_time("Runtime: Fuzzy distortion for stability"):
@@ -126,7 +126,7 @@ def run_dataset(dataset: str):
         logger.info(f"Fuzzy distortion score: {list_fuzzy_distortion}")
         excel_content["Fuzzy distortion(upper)"] = {
             "stability": list_stability,
-            "Fuzzy distortion": list_fuzzy_distortion,
+            "distortion": list_fuzzy_distortion,
         }
     save_jsonl("p_stability", {"dataset": dataset, "results": excel_content})
     plot_bounds(excel_content, dataset, show_plot=False, save_plot=True)
@@ -136,8 +136,8 @@ def run_dataset(dataset: str):
 if __name__ == "__main__":
 
     dataset_list = [
-        "circles_0.05_undersampled",
-        "moons_0.15_undersampled",
+        "circles_0.05_150",
+        "moons_0.15_150",
         "iris_undersampled",
         "wine_undersampled",
         "iris_0_1",

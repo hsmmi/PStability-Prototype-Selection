@@ -3,6 +3,23 @@ import os
 import logging
 
 
+def check_directory(directory: str) -> None:
+    """
+    Check if the specified directory or file directory exists, and create it if it does not.
+
+    Parameters
+    ----------
+    directory : str
+        The directory or file directory to check.
+    """
+    # Check if directory is a file
+    if "." in os.path.basename(directory):
+        directory = os.path.dirname(directory)
+
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+
 class ProjectPath:
     def __init__(self, current_file_path: str, marker: str = ".git"):
         """
