@@ -4,6 +4,7 @@ from src.utils.result import log_result
 from src.utils.data_preprocessing import load_data
 from src.utils.evaluation_metrics import compare_prototype_selection
 from src.utils.excel import save_to_excel
+from src.utils.result import DatasetResult, AlgorithmResult
 
 from src.algorithms.prototype_selection.cnn import CNN
 from src.algorithms.prototype_selection.drop3 import DROP3
@@ -24,12 +25,12 @@ from src.utils.path import ProjectPath
 FILE_NAME = ProjectPath(__file__).get_safe_filename()
 
 k = 1
-n_folds = 10
+n_folds = 2
 
 datasets = [
     "appendicitis",
     "bupa",
-    "circles_0.05_150",
+    # "circles_0.05_150",
     "ecoli",
     "glass",
     "haberman",
@@ -37,7 +38,7 @@ datasets = [
     "ionosphere",
     "iris",
     "liver",
-    "moons_0.15_150",
+    # "moons_0.15_150",
     "movement_libras",
     "promoters",
     "sonar",
@@ -60,58 +61,40 @@ algorithms = {
     "RIS3": {"algorithm": RIS("RIS3").fit_transform},
 }
 
-tmp_results = []
+tmp_results: list[DatasetResult] = []
 excel_content = {}
-folder = f"prototype selection {n_folds}-fold {len(datasets)}-DS {time.strftime("%Y-%m-%d %H:%M:%S")}"+ "/"
+folder = f"prototype_selection_{n_folds}-fold_{len(datasets)}-DS_{time.strftime("%Y-%m-%d %H:%M:%S")}"+ "/"
 
 for dataset_name in tqdm.tqdm(datasets, desc="Dataset progress", leave=False):
     bt_ds = dataset_name.replace("_", " ").capitalize()
     file_name = folder + f"prototype selection {n_folds}-fold {bt_ds}"
     X, y = load_data(dataset_name)
     tmp_result = compare_prototype_selection(X, y, algorithms, 1, n_folds)
+    tmp_result.dataset = dataset_name
     print(f"Dataset: {dataset_name}")
-    log_result({"Dataset": dataset_name, "k": 1, "n_folds": n_folds, "results": tmp_result}, file_name)
+    log_result(tmp_result, file_name)
     print("\n")
 
     tmp_results.append(tmp_result)
-    
-    tmp_content = {
-        bt_ds: {
-            "Algorithms": list(tmp_result.keys()),
-            "Acc. Train": [f"{tmp_result[key][0]:.2%}" for key in tmp_result],
-            "Acc. Test": [f"{tmp_result[key][1]:.2%}" for key in tmp_result],
-            "Size": [f"{tmp_result[key][2]:.2f}" for key in tmp_result],
-            "Distortion": [f"{tmp_result[key][3]:.2f}" for key in tmp_result],
-            "Objective Function": [f"{tmp_result[key][4]:.2f}" for key in tmp_result],
-            "Reduction": [f"{tmp_result[key][5]:.2%}" for key in tmp_result],
-            "Time": [f"{tmp_result[key][6]:.3f}" for key in tmp_result],
-        }
-    }
-    save_to_excel(tmp_content, file_name)
-    excel_content[bt_ds] = tmp_content[bt_ds]
+    tmp_ecxel_content = tmp_result.ecxel_content()
+    save_to_excel({bt_ds: tmp_ecxel_content}, file_name)
+    excel_content[bt_ds] = tmp_ecxel_content
 
-result = {}
-for algorithm_name, _ in tmp_results[0].items():
-    result[algorithm_name] = []
-    for tmp_result in tmp_results:
-        result[algorithm_name].append(tmp_result[algorithm_name])
+final_res = DatasetResult("Final results", n_folds, k)
 
-    result[algorithm_name] = np.array(result[algorithm_name]).mean(axis=0)
+for algorithm_name in tmp_results[0].results.keys():
+    final_res.add_result(AlgorithmResult(algorithm_name))
+    for dataset_res in tmp_results:
+        final_res.results[algorithm_name].add_result(
+            dataset_res.results[algorithm_name].result
+        )
 
-excel_content["Final results"] = {
-    "Algorithms": list(result.keys()),
-    "Acc. Train": [f"{result[key][0]:.2%}" for key in result],
-    "Acc. Test": [f"{result[key][1]:.2%}" for key in result],
-    "Size": [f"{result[key][2]:.2f}" for key in result],
-    "Distortion": [f"{result[key][3]:.2f}" for key in result],
-    "Objective Function": [f"{result[key][4]:.2f}" for key in result],
-    "Reduction": [f"{result[key][5]:.2%}" for key in result],
-    "Time": [f"{result[key][6]:.3f}" for key in result],
-}
+
+excel_content["Final results"] = final_res.ecxel_content()
 
 print("Final results:")
 file_name= folder + f"prototype selection {n_folds}-fold {len(datasets)}-DS"
-log_result({"Dataset" : datasets, "k": 1, "n_folds": n_folds, "results": result}, file_name)
+log_result(final_res, file_name)
 save_to_excel(
     excel_content,
     file_name

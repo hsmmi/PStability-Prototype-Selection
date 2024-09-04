@@ -8,6 +8,182 @@ from src.utils.path import check_directory
 logger = get_logger("result")
 
 
+class RunResult:
+    def __init__(
+        self,
+        accuracy: float,
+        reduction: float,
+        distortion: float,
+        objective_function: float,
+        size: float,
+        time: float,
+    ):
+        self.accuracy = accuracy
+        self.reduction = reduction
+        self.effectiveness = self.accuracy * self.reduction
+        self.distortion = distortion
+        self.objective_function = objective_function
+        self.size = size
+        self.time = time
+
+    def to_json(self):
+        return {
+            "accuracy": self.accuracy,
+            "reduction": self.reduction,
+            "effectiveness": self.effectiveness,
+            "distortion": self.distortion,
+            "objective_function": self.objective_function,
+            "size": self.size,
+            "time": self.time,
+        }
+
+    def format(self):
+        return {
+            "Accuracy": f"{self.accuracy:.2%}",
+            "Reduction": f"{self.reduction:.2%}",
+            "Effectiveness": f"{self.effectiveness:.2%}",
+            "Distortion": f"{self.distortion:.3f}",
+            "Objective Function": f"{self.objective_function:.3f}",
+            "Size": f"{self.size:.2f}",
+            "Time": f"{self.time:.4f}",
+        }
+
+
+class AlgorithmResult:
+    def __init__(
+        self,
+        algorithm: str,
+    ):
+        self.algorithm = algorithm
+        self.n_runs = 0
+        self.result = RunResult(0, 0, 0, 0, 0, 0)
+
+    def add_result(self, result: RunResult):
+        for key in result.__dict__:
+            setattr(
+                self.result,
+                key,
+                (getattr(self.result, key) * self.n_runs + getattr(result, key))
+                / (self.n_runs + 1),
+            )
+
+        self.n_runs += 1
+
+    def to_json(self):
+        return {
+            "algorithm": self.algorithm,
+            "n_runs": self.n_runs,
+            "result": self.result.to_json(),
+        }
+
+    def format_dict(self):
+        return {
+            "Algorithm": self.algorithm,
+            **self.result.format(),
+        }
+
+    def format_list(self):
+        return [
+            self.algorithm,
+            *self.result.format().values(),
+        ]
+
+
+class DatasetResult:
+    def __init__(self, dataset: str, n_folds: int = 5, k: int = 1):
+        self.dataset = dataset
+        self.n_folds = n_folds
+        self.k = k
+        self.results: dict[str, AlgorithmResult] = {}
+
+    def add_result(self, result: AlgorithmResult):
+        self.results[result.algorithm] = result
+
+    def to_json(self):
+        return {
+            "dataset": self.dataset,
+            "n_folds": self.n_folds,
+            "k": self.k,
+            "results": {
+                algorithm: value.to_json() for algorithm, value in self.results.items()
+            },
+        }
+
+    def print_tabulated(self):
+        from tabulate import tabulate
+
+        table = []
+        for algorithm in self.results:
+            table.append(self.results[algorithm].format_list())
+
+        headers = [
+            "Algorithm",
+            "Accuracy",
+            "Reduction",
+            "Effectiveness",
+            "Distortion",
+            "Objective Function",
+            "Size",
+            "Time",
+        ]
+
+        # Add padding to the headers :^10
+        headers = [f"{header:^10}" for header in headers]
+
+        print(
+            tabulate(
+                table,
+                headers=headers,
+                tablefmt="fancy_grid",
+                numalign="center",
+                stralign="center",
+            )
+        )
+
+    def ecxel_content(self):
+        tmp_content = {}
+        for algorithm in self.results:
+            tmp_content[algorithm] = self.results[algorithm].format_dict()
+
+        return {
+            "Algorithms": list(tmp_content.keys()),
+            "Accuracy": [
+                tmp_content[algorithm]["Accuracy"] for algorithm in tmp_content
+            ],
+            "Reduction": [
+                tmp_content[algorithm]["Reduction"] for algorithm in tmp_content
+            ],
+            "Effectiveness": [
+                tmp_content[algorithm]["Effectiveness"] for algorithm in tmp_content
+            ],
+            "Distortion": [
+                tmp_content[algorithm]["Distortion"] for algorithm in tmp_content
+            ],
+            "Objective Function": [
+                tmp_content[algorithm]["Objective Function"]
+                for algorithm in tmp_content
+            ],
+            "Size": [tmp_content[algorithm]["Size"] for algorithm in tmp_content],
+            "Time": [tmp_content[algorithm]["Time"] for algorithm in tmp_content],
+        }
+
+
+def format_dict_results(results):
+    return {
+        key: {
+            "Acc. Train": f"{results[key]['Acc. Train']/100:.4f}",
+            "Acc. Test": f"{results[key]['Acc. Test']/100:.4f}",
+            "Size": f"{results[key]['Size']/100:.4f}",
+            "Distortion": f"{results[key]['Distortion']/100:.4f}",
+            "Objective Function": f"{results[key]['Objective Function']/100:.4f}",
+            "Reduction": f"{results[key]['Reduction']/100:.4f}",
+            "Acc*Red": f"{results[key]['Acc*Red']/100:.4f}",
+            "Time": f"{results[key]['Time']:.4f}",
+        }
+        for key in results
+    }
+
+
 def load_lines_in_range(file_name, start=None, end=None):
     lines = []
 
@@ -42,6 +218,9 @@ def load_lines_in_range(file_name, start=None, end=None):
 
 
 def load_lines_in_range_jsonl(file_name, start=None, end=None):
+    if file_name[-6:] == ".jsonl":
+        file_name = file_name[:-6]
+
     lines = load_lines_in_range(file_name + ".jsonl", start, end)
 
     # If there's only one line, return it as a string
@@ -71,15 +250,17 @@ class NumpyEncoder(json.JSONEncoder):
         return super(NumpyEncoder, self).default(obj)
 
 
-def save_jsonl(file_name, data):
+def save_jsonl(file_name, data: DatasetResult):
+    if file_name[-6:] == ".jsonl":
+        file_name = file_name[:-6]
     file_name = LOG_PATH + file_name + ".jsonl"
     check_directory(file_name)
     with open(file_name, "a") as f:
-        f.write(json.dumps(data, cls=NumpyEncoder) + "\n")
+        f.write(json.dumps(data.to_json(), cls=NumpyEncoder) + "\n")
 
 
 def log_result(
-    result: dict,
+    result: DatasetResult,
     file_name: str,
     log_file: bool = True,
     log_console: bool = True,
@@ -98,59 +279,10 @@ def log_result(
         log_console : bool, optional
             Whether to log the results to the console (default is True).
     """
-    result["results"] = {
-        key: {
-            "Acc. Train": round(result["results"][key][0] * 100, 2),
-            "Acc. Test": round(result["results"][key][1] * 100, 2),
-            "Size": round(result["results"][key][2], 2),
-            "Distortion": round(result["results"][key][3], 2),
-            "Objective Function": round(result["results"][key][4], 2),
-            "Reduction": round(result["results"][key][5] * 100, 2),
-            "Time": round(result["results"][key][6], 3),
-        }
-        for key in result["results"]
-    }
 
     if log_file:
         save_jsonl(file_name, result)
 
     if log_console:
         # Print in tabulated format
-        table = []
-        for key in result["results"]:
-            table.append(
-                [
-                    key,
-                    f"{result["results"][key]['Acc. Train']}%",
-                    f"{result["results"][key]['Acc. Test']}%",
-                    f"{result["results"][key]['Size']:.2f}",
-                    f"{result["results"][key]['Distortion']:.2f}",
-                    f"{result["results"][key]['Objective Function']:.2f}",
-                    f"{result["results"][key]['Reduction']:.2f}%",
-                    f"{result["results"][key]['Time']:.3f}",
-                ]
-            )
-
-        headers = [
-            "Algorithm",
-            "Acc. Train",
-            "Acc. Test",
-            "Size",
-            "Distortion",
-            "Objective Function",
-            "Reduction",
-            "Time",
-        ]
-
-        # Add padding to the headers :^10
-        headers = [f"{header:^10}" for header in headers]
-
-        print(
-            tabulate.tabulate(
-                table,
-                headers,
-                tablefmt="fancy_grid",
-                numalign="center",
-                stralign="center",
-            )
-        )
+        result.print_tabulated()

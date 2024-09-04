@@ -7,6 +7,7 @@ from sklearn.model_selection import StratifiedKFold
 from tqdm import tqdm
 from config import RANDOM_SEED
 from src.algorithms.stability.p_stability import PStability
+from src.utils.result import DatasetResult, AlgorithmResult, RunResult
 
 
 # Compare different prororype selection with n-fold cross validation
@@ -31,10 +32,13 @@ def compare_prototype_selection(
     Returns:
     dict: Dictionary containing the results for each algorithm.
     """
-    results = {key: [] for key in algorithms.keys()}
-    results["Original"] = []
+    algorithms["Original"] = {"algorithm": None}
 
     kf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=42)
+
+    dataset_res = DatasetResult("Dataset", n_folds, k)
+    for algorithm in algorithms.keys():
+        dataset_res.add_result(AlgorithmResult(algorithm))
 
     for train_index, test_index in tqdm(
         kf.split(X, y), total=n_folds, desc="K-Fold progress", leave=False
@@ -42,63 +46,40 @@ def compare_prototype_selection(
         X_train, X_test = X[train_index], X[test_index]
         y_train, y_test = y[train_index], y[test_index]
 
-        # Train the KNN classifier on the reduced dataset
-        knn = KNeighborsClassifier(n_neighbors=k, metric=distance_metric)
-        knn.fit(X_train, y_train)
-
-        # Evaluate the classifier
-        accuracy_train = knn.score(X_train, y_train)
-        accuracy_test = knn.score(X_test, y_test)
-
-        p_stability = PStability(distance_metric)
-        p_stability.fit(X_train, y_train)
-        distorion = p_stability.run_fuzzy_distortion(1)
-        objective_function = distorion + p_stability.n_misses
-
-        results["Original"].append(
-            [
-                accuracy_train,
-                accuracy_test,
-                len(X_train),
-                distorion,
-                objective_function,
-                0,
-                0,
-            ]
-        )
-
-        for key, value in tqdm(
+        for algorithm_name, value in tqdm(
             algorithms.copy().items(), desc="Algorithm progress", leave=False
         ):
-            if key == "Original":
-                continue
+            if algorithm_name == "Original":
+                X_reduced, y_reduced = X_train, y_train
+                start_time, end_time = 0, 0
+            else:
+                algorithm, init_params = value["algorithm"], value.get(
+                    "init_params", None
+                )
+                args = {
+                    "X": X_train,
+                    "y": y_train,
+                }
+                if init_params:
+                    args.update(init_params)
 
-            algorithm, init_params = value["algorithm"], value.get("init_params", None)
+                # Reset random seed
+                random.seed(RANDOM_SEED)
 
-            args = {
-                "X": X_train,
-                "y": y_train,
-            }
-            if init_params:
-                args.update(init_params)
+                # Start timer
+                start_time = time.time()
 
-            # Reset random seed
-            random.seed(RANDOM_SEED)
+                # Apply Algorithm
+                X_reduced, y_reduced = algorithm(**args)
 
-            # Start timer
-            start_time = time.time()
-
-            # Apply Algorithm
-            X_reduced, y_reduced = algorithm(**args)
-
-            # End timer
-            end_time = time.time()
+                # End timer
+                end_time = time.time()
 
             # Check if the reduced dataset has at least k samples
             if len(X_reduced) < k:
                 # Remove the algorithm from the results
-                results.pop(key)
-                algorithms.pop(key)
+                algorithms.pop(algorithm_name)
+                dataset_res.results.pop(algorithm_name)
                 continue
 
             # Train the KNN classifier on the reduced dataset
@@ -106,8 +87,7 @@ def compare_prototype_selection(
             knn_reduced.fit(X_reduced, y_reduced)
 
             # Evaluate the classifier
-            accuracy_reduced_train = knn_reduced.score(X_train, y_train)
-            accuracy_reduced_test = knn_reduced.score(X_test, y_test)
+            accuracy_reduced = knn_reduced.score(X_test, y_test)
 
             psm = PStability(distance_metric)
             # psm.fit(X_reduced, y_reduced)
@@ -126,20 +106,15 @@ def compare_prototype_selection(
             distorion_reduced = psm.run_fuzzy_distortion(1)
             objective_function_reduced = distorion_reduced + psm.n_misses
 
-            results[key].append(
-                [
-                    accuracy_reduced_train,
-                    accuracy_reduced_test,
-                    len(X_reduced),
-                    distorion_reduced,
-                    objective_function_reduced,
-                    (1 - len(X_reduced) / len(X_train)),
-                    end_time - start_time,
-                ]
+            run_result = RunResult(
+                size=len(X_reduced),
+                accuracy=accuracy_reduced,
+                reduction=1 - len(X_reduced) / len(X_train),
+                distortion=distorion_reduced,
+                objective_function=objective_function_reduced,
+                time=end_time - start_time,
             )
 
-    # Make average of the results
-    for key in results.keys():
-        results[key] = np.mean(results[key], axis=0)
+            dataset_res.results[algorithm_name].add_result(run_result)
 
-    return results
+    return dataset_res
