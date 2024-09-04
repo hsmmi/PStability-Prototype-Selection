@@ -3,6 +3,7 @@ import numpy as np
 import tabulate
 from config import LOG_PATH
 from config.log import get_logger
+from src.utils.path import check_directory
 
 logger = get_logger("result")
 
@@ -71,14 +72,15 @@ class NumpyEncoder(json.JSONEncoder):
 
 
 def save_jsonl(file_name, data):
-    with open(LOG_PATH + file_name + ".jsonl", "a") as f:
+    file_name = LOG_PATH + file_name + ".jsonl"
+    check_directory(file_name)
+    with open(file_name, "a") as f:
         f.write(json.dumps(data, cls=NumpyEncoder) + "\n")
 
 
 def log_result(
     result: dict,
     file_name: str,
-    dataset: str,
     log_file: bool = True,
     log_console: bool = True,
 ) -> None:
@@ -91,43 +93,41 @@ def log_result(
             Dictionary containing the results for each algorithm.
         file_name : str
             Name of the file to log the results.
-        dataset : str
-            Name of the dataset used in the experiment.
         log_file : bool, optional
             Whether to log the results to a file (default is True).
         log_console : bool, optional
             Whether to log the results to the console (default is True).
     """
-    formatted_result = {
+    result["results"] = {
         key: {
-            "Acc. Train": round(result[key][0] * 100, 2),
-            "Acc. Test": round(result[key][1] * 100, 2),
-            "Size": round(result[key][2], 2),
-            "Distortion": round(result[key][3], 2),
-            "Objective Function": round(result[key][4], 2),
-            "Reduction": round(result[key][5] * 100, 2),
-            "Time": round(result[key][6], 3),
+            "Acc. Train": round(result["results"][key][0] * 100, 2),
+            "Acc. Test": round(result["results"][key][1] * 100, 2),
+            "Size": round(result["results"][key][2], 2),
+            "Distortion": round(result["results"][key][3], 2),
+            "Objective Function": round(result["results"][key][4], 2),
+            "Reduction": round(result["results"][key][5] * 100, 2),
+            "Time": round(result["results"][key][6], 3),
         }
-        for key in result
+        for key in result["results"]
     }
 
     if log_file:
-        save_jsonl(file_name, {"dataset": dataset, "results": formatted_result})
+        save_jsonl(file_name, result)
 
     if log_console:
         # Print in tabulated format
         table = []
-        for key in result:
+        for key in result["results"]:
             table.append(
                 [
                     key,
-                    f"{result[key][0]:.2%}",
-                    f"{result[key][1]:.2%}",
-                    f"{result[key][2]:.2f}",
-                    f"{result[key][3]:.2f}",
-                    f"{result[key][4]:.2f}",
-                    f"{result[key][5]:.2%}",
-                    f"{result[key][6]:.3f}s",
+                    f"{result["results"][key]['Acc. Train']}%",
+                    f"{result["results"][key]['Acc. Test']}%",
+                    f"{result["results"][key]['Size']:.2f}",
+                    f"{result["results"][key]['Distortion']:.2f}",
+                    f"{result["results"][key]['Objective Function']:.2f}",
+                    f"{result["results"][key]['Reduction']:.2f}%",
+                    f"{result["results"][key]['Time']:.3f}",
                 ]
             )
 

@@ -38,19 +38,22 @@ class MyDataset:
 
 if __name__ == "__main__":
     datasets = [
-        "ecoli",
-        "ionosphere",
-        "heart",
-        "sonar",
-        "haberman",
-        "liver",
-        "iris",
-        "wine",
-        "moons_0.15_150",
+        "appendicitis",  # ***
+        "bupa",
         "circles_0.05_150",
-        "zoo",
+        "ecoli",
         "glass",
+        "haberman",
+        "heart",
+        "ionosphere",
+        "iris",
+        "liver",
+        "moons_0.15_150",
+        "movement_libras",
         "promoters",
+        "sonar",
+        "wine",
+        "zoo",
     ]
 
     datasets.sort()

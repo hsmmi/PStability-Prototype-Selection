@@ -23,38 +23,41 @@ from src.utils.path import ProjectPath
 
 FILE_NAME = ProjectPath(__file__).get_safe_filename()
 
+k = 1
 n_folds = 10
 
 datasets = [
-    "ecoli",
-    "ionosphere",
-    "heart",
-    "sonar",
-    "haberman",
-    "liver",
-    "iris",
-    "wine",
-    "moons_0.15_150",
+    "appendicitis",
+    "bupa",
     "circles_0.05_150",
-    "zoo",
+    "ecoli",
     "glass",
+    "haberman",
+    "heart",
+    "ionosphere",
+    "iris",
+    "liver",
+    "moons_0.15_150",
+    "movement_libras",
     "promoters",
+    "sonar",
+    "wine",
+    "zoo",
 ]
-# datasets = ["iris"]
 
 algorithms = {
     "MPS": {"algorithm": MPS().fit_transform},
     "CNN": {"algorithm": CNN().fit_transform},
     "DROP3": {"algorithm": DROP3().fit_transform},
+    "HMNEI": {"algorithm": HMNEI().fit_transform},
     "ICF": {"algorithm": ICF().fit_transform},
     "LDIS": {"algorithm": LDIS().fit_transform},
     "LSBo": {"algorithm": LSBo().fit_transform},
     "LSSm": {"algorithm": LSSm().fit_transform},
+    "NNGIR": {"algorithm": NNGIR().fit_transform},
     "RIS1": {"algorithm": RIS("RIS1").fit_transform},
     "RIS2": {"algorithm": RIS("RIS2").fit_transform},
     "RIS3": {"algorithm": RIS("RIS3").fit_transform},
-    "HMNEI": {"algorithm": HMNEI().fit_transform},
-    "NNGIR": {"algorithm": NNGIR().fit_transform},
 }
 
 tmp_results = []
@@ -62,14 +65,18 @@ excel_content = {}
 folder = f"prototype selection {n_folds}-fold {len(datasets)}-DS {time.strftime("%Y-%m-%d %H:%M:%S")}"+ "/"
 
 for dataset_name in tqdm.tqdm(datasets, desc="Dataset progress", leave=False):
+    bt_ds = dataset_name.replace("_", " ").capitalize()
+    file_name = folder + f"prototype selection {n_folds}-fold {bt_ds}"
     X, y = load_data(dataset_name)
     tmp_result = compare_prototype_selection(X, y, algorithms, 1, n_folds)
     print(f"Dataset: {dataset_name}")
-    log_result(tmp_result, FILE_NAME, dataset_name)
+    log_result({"Dataset": dataset_name, "k": 1, "n_folds": n_folds, "results": tmp_result}, file_name)
     print("\n")
+
     tmp_results.append(tmp_result)
+    
     tmp_content = {
-        dataset_name: {
+        bt_ds: {
             "Algorithms": list(tmp_result.keys()),
             "Acc. Train": [f"{tmp_result[key][0]:.2%}" for key in tmp_result],
             "Acc. Test": [f"{tmp_result[key][1]:.2%}" for key in tmp_result],
@@ -80,8 +87,8 @@ for dataset_name in tqdm.tqdm(datasets, desc="Dataset progress", leave=False):
             "Time": [f"{tmp_result[key][6]:.3f}" for key in tmp_result],
         }
     }
-    save_to_excel(tmp_content, folder + f"prototype selection {n_folds}-fold {dataset_name}")
-    excel_content[dataset_name] = tmp_content[dataset_name]
+    save_to_excel(tmp_content, file_name)
+    excel_content[bt_ds] = tmp_content[bt_ds]
 
 result = {}
 for algorithm_name, _ in tmp_results[0].items():
@@ -103,9 +110,9 @@ excel_content["Final results"] = {
 }
 
 print("Final results:")
-log_result(result, FILE_NAME, datasets)
+file_name= folder + f"prototype selection {n_folds}-fold {len(datasets)}-DS"
+log_result({"Dataset" : datasets, "k": 1, "n_folds": n_folds, "results": result}, file_name)
 save_to_excel(
     excel_content,
-    folder
-    + f"prototype selection {n_folds}-fold {len(datasets)}-DS",
+    file_name
 )

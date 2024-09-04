@@ -19,6 +19,15 @@ algorithms = {
     "DROP3": {"algorithm": DROP3().fit_transform},
 }
 
-result = compare_prototype_selection(X, y, algorithms, 3, 10)
+k, n_folds = 3, 10
 
-log_result(result, FILE_NAME, DATASET_NAME)
+result = compare_prototype_selection(X, y, algorithms, k, n_folds)
+
+result = {
+    "Dataset": DATASET_NAME,
+    "k": k,
+    "n_folds": n_folds,
+    "results": result,
+}
+
+log_result(result, FILE_NAME)

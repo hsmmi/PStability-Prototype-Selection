@@ -37,7 +37,7 @@ class CNNIR(BaseAlgorithm):
                 r += 1
 
     def _noise_filter(self) -> None:
-        edited_set = []
+        self.edited_set = []
 
         indices = np.where(self.Nb)[0]  # Filter instances without natural neighbors
 
@@ -47,9 +47,9 @@ class CNNIR(BaseAlgorithm):
             predominant_class = np.argmax(np.bincount(nn_labels))
 
             if self.y[idx] == predominant_class:
-                edited_set.append(idx)
+                self.edited_set.append(idx)
 
-        self.S = self.S[edited_set]
+        self.S = self.S[self.edited_set]
 
     def _search_core_instances(self) -> None:
         self.core_instances = []
