@@ -12,6 +12,7 @@ class RunResult:
     def __init__(
         self,
         accuracy: float,
+        kappa: float,
         reduction: float,
         distortion: float,
         total_distortion: float,
@@ -19,8 +20,8 @@ class RunResult:
         time: float,
     ):
         self.accuracy = accuracy
+        self.kappa = kappa
         self.reduction = reduction
-        self.effectiveness = self.accuracy * self.reduction
         self.distortion = distortion
         self.total_distortion = total_distortion
         self.size = size
@@ -28,20 +29,24 @@ class RunResult:
 
     def to_json(self):
         return {
-            "accuracy": self.accuracy,
-            "reduction": self.reduction,
-            "effectiveness": self.effectiveness,
-            "distortion": self.distortion,
-            "total_distortion": self.total_distortion,
-            "size": self.size,
-            "time": self.time,
+            "Accuracy": self.accuracy,
+            "Kappa": self.kappa,
+            "Reduction": self.reduction,
+            "Acc. * Red.": self.accuracy * self.reduction,
+            "Kap. * Red.": self.kappa * self.reduction,
+            "Distortion": self.distortion,
+            "Total Distortion": self.total_distortion,
+            "Size": self.size,
+            "Time": self.time,
         }
 
     def format(self):
         return {
             "Accuracy": f"{self.accuracy:.2%}",
+            "Kappa": f"{self.kappa:.4f}",
             "Reduction": f"{self.reduction:.2%}",
-            "Effectiveness": f"{self.effectiveness:.2%}",
+            "Acc. * Red.": f"{self.accuracy * self.reduction:.4f}",
+            "Kap. * Red.": f"{self.kappa * self.reduction:.4f}",
             "Distortion": f"{self.distortion:.3f}",
             "Total Distortion": f"{self.total_distortion:.3f}",
             "Size": f"{self.size:.2f}",
@@ -52,11 +57,11 @@ class RunResult:
 class AlgorithmResult:
     def __init__(
         self,
-        algorithm: str,
+        algorithm: str = None,
     ):
         self.algorithm = algorithm
         self.n_runs = 0
-        self.result = RunResult(0, 0, 0, 0, 0, 0)
+        self.result = RunResult(0, 0, 0, 0, 0, 0, 0)
 
     def add_result(self, result: RunResult):
         for key in result.__dict__:
@@ -88,9 +93,24 @@ class AlgorithmResult:
             *self.result.format().values(),
         ]
 
+    def load_dict(self, data: dict):
+        self.algorithm = data["algorithm"]
+        self.n_runs = data["n_runs"]
+        self.result = RunResult(
+            data["result"]["Accuracy"],
+            data["result"]["Kappa"],
+            data["result"]["Reduction"],
+            data["result"]["Distortion"],
+            data["result"]["Total Distortion"],
+            data["result"]["Size"],
+            data["result"]["Time"],
+        )
+
+        return self
+
 
 class DatasetResult:
-    def __init__(self, dataset: str, n_folds: int = 5, k: int = 1):
+    def __init__(self, dataset: str = None, n_folds: int = 5, k: int = 1):
         self.dataset = dataset
         self.n_folds = n_folds
         self.k = k
@@ -119,6 +139,7 @@ class DatasetResult:
         headers = [
             "Algorithm",
             "Accuracy",
+            "Kappa",
             "Reduction",
             "Effectiveness",
             "Distortion",
@@ -145,42 +166,61 @@ class DatasetResult:
         for algorithm in self.results:
             tmp_content[algorithm] = self.results[algorithm].format_dict()
 
+        metrics = list(tmp_content[list(tmp_content.keys())[0]].keys())
+
         return {
-            "Algorithms": list(tmp_content.keys()),
-            "Accuracy": [
-                tmp_content[algorithm]["Accuracy"] for algorithm in tmp_content
-            ],
-            "Reduction": [
-                tmp_content[algorithm]["Reduction"] for algorithm in tmp_content
-            ],
-            "Effectiveness": [
-                tmp_content[algorithm]["Effectiveness"] for algorithm in tmp_content
-            ],
-            "Distortion": [
-                tmp_content[algorithm]["Distortion"] for algorithm in tmp_content
-            ],
-            "Total Distortion": [
-                tmp_content[algorithm]["Total Distortion"] for algorithm in tmp_content
-            ],
-            "Size": [tmp_content[algorithm]["Size"] for algorithm in tmp_content],
-            "Time": [tmp_content[algorithm]["Time"] for algorithm in tmp_content],
+            **{
+                metric: [tmp_content[algorithm][metric] for algorithm in tmp_content]
+                for metric in metrics
+            },
         }
 
+    def load_jsonl(self, filename, line=-1):
+        """
+        Load the dataset result from a JSONL file just one line.
 
-def format_dict_results(results):
-    return {
-        key: {
-            "Acc. Train": f"{results[key]['Acc. Train']/100:.4f}",
-            "Acc. Test": f"{results[key]['Acc. Test']/100:.4f}",
-            "Size": f"{results[key]['Size']/100:.4f}",
-            "Distortion": f"{results[key]['Distortion']/100:.4f}",
-            "Total Distortion": f"{results[key]['Total Distortion']/100:.4f}",
-            "Reduction": f"{results[key]['Reduction']/100:.4f}",
-            "Acc*Red": f"{results[key]['Acc*Red']/100:.4f}",
-            "Time": f"{results[key]['Time']:.4f}",
-        }
-        for key in results
-    }
+        Parameters:
+        filename (str): Name of the JSONL file.
+        line (int): Line number to load from the file. If -1, load the last line.
+
+        Returns:
+        None
+        """
+        data = load_lines_in_range_jsonl(filename, line, line)
+        self.dataset = data["dataset"]
+        self.n_folds = data["n_folds"]
+        self.k = data["k"]
+        for algorithm in data["results"]:
+            result = AlgorithmResult().load_dict(data["results"][algorithm])
+            self.results[algorithm] = result
+
+        return self
+
+    def save_jsonl(self, filename):
+        """
+        Save the dataset result to a JSONL file.
+
+        Parameters:
+        filename (str): Name of the JSONL file.
+
+        Returns:
+        None
+        """
+        save_jsonl(filename, self)
+
+    def save_to_excel(self, filename):
+        """
+        Save the dataset result to an Excel file.
+
+        Parameters:
+        filename (str): Name of the Excel file.
+
+        Returns:
+        None
+        """
+        from src.utils.excel import save_to_excel
+
+        save_to_excel({self.dataset: self.ecxel_content()}, filename)
 
 
 def load_lines_in_range(file_name, start=None, end=None):
@@ -249,13 +289,17 @@ class NumpyEncoder(json.JSONEncoder):
         return super(NumpyEncoder, self).default(obj)
 
 
-def save_jsonl(file_name, data: DatasetResult):
+def save_jsonl(file_name, data: DatasetResult | dict):
     if file_name[-6:] == ".jsonl":
         file_name = file_name[:-6]
     file_name = LOG_PATH + file_name + ".jsonl"
     check_directory(file_name)
-    with open(file_name, "a") as f:
-        f.write(json.dumps(data.to_json(), cls=NumpyEncoder) + "\n")
+    if type(data) == DatasetResult:
+        with open(file_name, "a") as f:
+            f.write(json.dumps(data.to_json(), cls=NumpyEncoder) + "\n")
+    else:
+        with open(file_name, "a") as f:
+            f.write(json.dumps(data, cls=NumpyEncoder) + "\n")
 
 
 def log_result(

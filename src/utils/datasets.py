@@ -38,9 +38,8 @@ class MyDataset:
 
 if __name__ == "__main__":
     datasets = [
-        "appendicitis",  # ***
+        "appendicitis",
         "bupa",
-        "circles_0.05_150",
         "ecoli",
         "glass",
         "haberman",
@@ -48,7 +47,6 @@ if __name__ == "__main__":
         "ionosphere",
         "iris",
         "liver",
-        "moons_0.15_150",
         "movement_libras",
         "promoters",
         "sonar",

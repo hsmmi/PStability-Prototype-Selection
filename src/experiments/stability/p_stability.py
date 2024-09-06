@@ -1,3 +1,4 @@
+import time
 from tqdm import tqdm
 from src.algorithms.stability.p_stability import PStability
 from src.utils.timer import measure_time
@@ -9,6 +10,41 @@ from src.utils.visualization import plot_bounds
 
 logger = get_logger("mylogger")
 
+datasets = [
+    # "appendicitis",
+    "bupa",
+    # "ecoli",
+    # "glass",
+    "haberman",
+    # "heart",
+    # "ionosphere",
+    # "iris",
+    # "liver",
+    "movement_libras",
+    # "promoters",
+    "sonar",
+    # "wine",
+    # "zoo",
+]
+# datasets = [
+#     "appendicitis",
+#     # "bupa",
+#     # "ecoli",
+#     # "glass",
+#     # "haberman",
+#     # "heart",
+#     # "ionosphere",
+#     "iris",
+#     # "liver",
+#     # "movement_libras",
+#     "promoters",
+#     # "sonar",
+#     # "wine",
+#     "zoo",
+# ]
+
+
+folder = f"p_stability/{time.strftime("%Y-%m-%d %H:%M:%S")}_{len(datasets)}-DS"+ "/"
 
 def run_dataset(dataset: str):
     X, y = load_data(dataset)
@@ -23,7 +59,7 @@ def run_dataset(dataset: str):
     max_distortion = p_stability.n_samples - p_stability.n_misses
 
     with measure_time("Runtime: Exact Stability for each distortion"):
-        list_distortion = list(range(14))
+        list_distortion = list(range(0))
         list_exact_stability = p_stability.run_exact_stability(list_distortion)
         logger.info(f"Exact Stability: {list_exact_stability}")
         excel_content["Exact Stability"] = {
@@ -53,10 +89,11 @@ def run_dataset(dataset: str):
             "stability": list_greedy_stability,
         }
     with measure_time("Runtime: unique friend stability for each distortion"):
-        list_distortion = list(range(21))
+        list_distortion = list(range(max_distortion + 1))
         list_unique_friend_stability = p_stability.run_unique_friend_stability(
             list_distortion
         )
+        list_distortion = list(range(len(list_unique_friend_stability)))
         logger.info(
             f"unique friend stability for distortion: {list_unique_friend_stability}"
         )
@@ -65,7 +102,7 @@ def run_dataset(dataset: str):
             "stability": list_unique_friend_stability,
         }
     with measure_time("Runtime: Exact distortion for each stability"):
-        list_stability = [0, 1, 2]
+        list_stability = list(range(0))
         list_exact_distortion = p_stability.run_exact_distortion(list_stability)
         logger.info(f"Exact distortion: {list_exact_distortion}")
         excel_content["Exact Missclasdistortionifications"] = {
@@ -128,24 +165,12 @@ def run_dataset(dataset: str):
             "stability": list_stability,
             "distortion": list_fuzzy_distortion,
         }
-    save_jsonl("p_stability", {"dataset": dataset, "results": excel_content})
-    plot_bounds(excel_content, dataset, show_plot=False, save_plot=True)
-    save_to_excel(excel_content, f"p_stability {dataset} tmp", mode="horizontal")
+    save_jsonl(folder+"p_stability", {"dataset": dataset, "results": excel_content})
+    bt_ds = dataset.replace("_", " ").capitalize()
+    plot_bounds(excel_content, bt_ds, folder, show_plot=False, save_plot=True)
+    save_to_excel(excel_content, folder+f"p_stability {dataset}", mode="horizontal")
 
 
 if __name__ == "__main__":
-
-    dataset_list = [
-        "circles_0.05_150",
-        "moons_0.15_150",
-        "iris_undersampled",
-        "wine_undersampled",
-        "iris_0_1",
-        "iris_0_2",
-        "iris_1_2",
-        "iris",
-        "wine",
-    ]
-
-    for dataset in tqdm(dataset_list, desc="Datasets progress", leave=False):
+    for dataset in tqdm(datasets, desc="Datasets progress", leave=False):
         run_dataset(dataset)

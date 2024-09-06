@@ -416,6 +416,12 @@ class PStability(KNN):
             misclassifications in list_distortion
         """
         self.number_of_friends_sorted_index = self.find_number_of_friends_sorted_index()
+        max_distortion = 0
+        upper_bound = 0
+        while upper_bound < self.n_samples:
+            upper_bound += self.number_of_friends_sorted_index[max_distortion][1]
+            max_distortion += 1
+        list_distortion = list(range(min(max_distortion, list_distortion[-1] + 1)))
         return self._run(list_distortion, self.find_unique_friend_stability)
 
     def find_exact_distortion(self, stability: int, start_index: int = 0) -> int:

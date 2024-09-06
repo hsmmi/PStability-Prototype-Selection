@@ -4,7 +4,7 @@ logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
 from matplotlib import pyplot as plt
 import numpy as np
-from config import FIGURE_PATH
+from config import FIGURE_PATH, LOG_PATH
 
 
 def plot_algorithm_results(
@@ -108,13 +108,15 @@ def plot_algorithm_results(
     plt.close()
 
 
-def plot_bounds(results: dict, dataset: str, save_plot=False, show_plot=True):
+def plot_bounds(
+    results: dict, dataset: str, folder: str, save_plot=False, show_plot=True
+):
     # Plot the bounds
     exact_stability = results["Exact Stability"]
     greedy_distortion = results["Greedy Distortion"]
     same_friend_distortion = results["Same Friend Distortion"]
     fuzzy_distortion = results["Fuzzy Distortion"]
-    binary_distortion = results["binary Distortion"]
+    binary_distortion = results["Binary Distortion"]
     unique_friend_distortion = results["Unique Friend Distortion"]
 
     # Create a square plot
@@ -131,17 +133,17 @@ def plot_bounds(results: dict, dataset: str, save_plot=False, show_plot=True):
     plt.plot(
         fuzzy_distortion["stability"],
         fuzzy_distortion["distortion"],
-        label="fuzzy distortion",
+        label="Fuzzy Distortion",
         linewidth=2,
         linestyle="-.",
     )
-    plt.plot(
-        exact_stability["stability"],
-        exact_stability["distortion"],
-        label="Exact Stability",
-        linewidth=2,
-        linestyle="-",
-    )
+    # plt.plot(
+    #     exact_stability["stability"],
+    #     exact_stability["distortion"],
+    #     label="Exact Stability",
+    #     linewidth=2,
+    #     linestyle="-",
+    # )
     plt.plot(
         greedy_distortion["stability"],
         greedy_distortion["distortion"],
@@ -159,7 +161,7 @@ def plot_bounds(results: dict, dataset: str, save_plot=False, show_plot=True):
     plt.plot(
         binary_distortion["stability"],
         binary_distortion["distortion"],
-        label="binary distortion",
+        label="Binary Distortion",
         linewidth=2,
         linestyle=(0, (3, 1, 1, 1)),
     )
@@ -167,10 +169,12 @@ def plot_bounds(results: dict, dataset: str, save_plot=False, show_plot=True):
     plt.xlabel("stability")
     plt.ylabel("distortion")
     plt.title(f"Bounds for distortion of stability on {dataset}")
-    plt.legend()
+
+    # plot info in the bottom right corner
+    plt.legend(loc="lower right")
 
     # Save the plot
     if save_plot:
-        plt.savefig(f"results/figures/bounds_{dataset}.png")
+        plt.savefig(LOG_PATH + folder + "bounds_" + dataset + ".png")
     if show_plot:
         plt.show()

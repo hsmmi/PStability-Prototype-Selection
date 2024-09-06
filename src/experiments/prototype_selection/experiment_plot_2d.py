@@ -1,6 +1,7 @@
 from src.utils.visualization import plot_algorithm_results
 from src.utils.data_preprocessing import load_data
 
+from src.algorithms.stability.my_prototype_selection import PrototypeSelection as MPS
 from src.algorithms.prototype_selection.enn import ENN
 from src.algorithms.prototype_selection.cnn import CNN
 from src.algorithms.prototype_selection.drlsh import DRLSH
@@ -15,7 +16,7 @@ from src.algorithms.prototype_selection.nngir import NNGIR
 
 import tqdm
 
-datasets = ["circles_0.05", "moons_0.15", "banana"]
+datasets = ["banana_undersampled"]
 
 # Define the algorithms
 algorithms = {
@@ -32,6 +33,7 @@ algorithms = {
     "RIS3": {"algorithm": RIS("RIS3").fit_transform},
     "HMNEI": {"algorithm": HMNEI().fit_transform},
     "NNGIR": {"algorithm": NNGIR().fit_transform},
+    "PSPS": {"algorithm": MPS().fit_transform},
 }
 
 # progress bar
@@ -46,7 +48,7 @@ for dataset_name in tqdm.tqdm(datasets, desc="Dataset progress", leave=False):
             y=y,
             X_=X_,
             y_=y_,
-            title=f"{dataset_name}_{algorithm_name}",
+            title=f"{algorithm_name}",
             save_plot=True,
             show_plot=False,
         )

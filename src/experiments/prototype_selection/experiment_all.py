@@ -25,7 +25,7 @@ from src.utils.path import ProjectPath
 FILE_NAME = ProjectPath(__file__).get_safe_filename()
 
 k = 1
-n_folds = 2
+n_folds = 10
 
 datasets = [
     "appendicitis",
@@ -63,7 +63,7 @@ algorithms = {
 
 tmp_results: list[DatasetResult] = []
 excel_content = {}
-folder = f"prototype_selection_{n_folds}-fold_{len(datasets)}-DS_{time.strftime("%Y-%m-%d %H:%M:%S")}"+ "/"
+folder = f"prototype_selection/{time.strftime("%Y-%m-%d %H-%M-%S")}_{n_folds}-fold_{len(datasets)}-DS"+ "/"
 
 for dataset_name in tqdm.tqdm(datasets, desc="Dataset progress", leave=False):
     bt_ds = dataset_name.replace("_", " ").capitalize()

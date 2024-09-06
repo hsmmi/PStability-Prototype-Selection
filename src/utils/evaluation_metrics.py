@@ -8,6 +8,7 @@ from tqdm import tqdm
 from config import RANDOM_SEED
 from src.algorithms.stability.p_stability import PStability
 from src.utils.result import DatasetResult, AlgorithmResult, RunResult
+from sklearn.metrics import cohen_kappa_score
 
 
 # Compare different prororype selection with n-fold cross validation
@@ -88,6 +89,9 @@ def compare_prototype_selection(
 
             # Evaluate the classifier
             accuracy_reduced = knn_reduced.score(X_test, y_test)
+            # Evaluate the kappa stability
+            y_pred = knn_reduced.predict(X_test)
+            kappa = cohen_kappa_score(y_test, y_pred)
 
             psm = PStability(distance_metric)
             # psm.fit(X_reduced, y_reduced)
@@ -107,11 +111,12 @@ def compare_prototype_selection(
             total_distortion_reduced = distorion_reduced + psm.n_misses
 
             run_result = RunResult(
-                size=len(X_reduced),
                 accuracy=accuracy_reduced,
+                kappa=kappa,
                 reduction=1 - len(X_reduced) / len(X_train),
                 distortion=distorion_reduced,
                 total_distortion=total_distortion_reduced,
+                size=len(X_reduced),
                 time=end_time - start_time,
             )
 
