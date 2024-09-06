@@ -14,7 +14,7 @@ class RunResult:
         accuracy: float,
         reduction: float,
         distortion: float,
-        objective_function: float,
+        total_distortion: float,
         size: float,
         time: float,
     ):
@@ -22,7 +22,7 @@ class RunResult:
         self.reduction = reduction
         self.effectiveness = self.accuracy * self.reduction
         self.distortion = distortion
-        self.objective_function = objective_function
+        self.total_distortion = total_distortion
         self.size = size
         self.time = time
 
@@ -32,7 +32,7 @@ class RunResult:
             "reduction": self.reduction,
             "effectiveness": self.effectiveness,
             "distortion": self.distortion,
-            "objective_function": self.objective_function,
+            "total_distortion": self.total_distortion,
             "size": self.size,
             "time": self.time,
         }
@@ -43,7 +43,7 @@ class RunResult:
             "Reduction": f"{self.reduction:.2%}",
             "Effectiveness": f"{self.effectiveness:.2%}",
             "Distortion": f"{self.distortion:.3f}",
-            "Objective Function": f"{self.objective_function:.3f}",
+            "Total Distortion": f"{self.total_distortion:.3f}",
             "Size": f"{self.size:.2f}",
             "Time": f"{self.time:.4f}",
         }
@@ -122,7 +122,7 @@ class DatasetResult:
             "Reduction",
             "Effectiveness",
             "Distortion",
-            "Objective Function",
+            "Total Distortion",
             "Size",
             "Time",
         ]
@@ -159,9 +159,8 @@ class DatasetResult:
             "Distortion": [
                 tmp_content[algorithm]["Distortion"] for algorithm in tmp_content
             ],
-            "Objective Function": [
-                tmp_content[algorithm]["Objective Function"]
-                for algorithm in tmp_content
+            "Total Distortion": [
+                tmp_content[algorithm]["Total Distortion"] for algorithm in tmp_content
             ],
             "Size": [tmp_content[algorithm]["Size"] for algorithm in tmp_content],
             "Time": [tmp_content[algorithm]["Time"] for algorithm in tmp_content],
@@ -175,7 +174,7 @@ def format_dict_results(results):
             "Acc. Test": f"{results[key]['Acc. Test']/100:.4f}",
             "Size": f"{results[key]['Size']/100:.4f}",
             "Distortion": f"{results[key]['Distortion']/100:.4f}",
-            "Objective Function": f"{results[key]['Objective Function']/100:.4f}",
+            "Total Distortion": f"{results[key]['Total Distortion']/100:.4f}",
             "Reduction": f"{results[key]['Reduction']/100:.4f}",
             "Acc*Red": f"{results[key]['Acc*Red']/100:.4f}",
             "Time": f"{results[key]['Time']:.4f}",

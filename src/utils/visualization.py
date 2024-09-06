@@ -110,12 +110,12 @@ def plot_algorithm_results(
 
 def plot_bounds(results: dict, dataset: str, save_plot=False, show_plot=True):
     # Plot the bounds
-    exact_stability = results["Exact stability"]
-    greedy_distortion = results["greedy distortion"]
-    same_friend_distortion = results["same friend distortion"]
-    fuzzy_distortion = results["Fuzzy distortion(upper)"]
-    binary_distortion = results["binary distortion(lower)"]
-    unique_friend_distortion = results["unique friend distortion"]
+    exact_stability = results["Exact Stability"]
+    greedy_distortion = results["Greedy Distortion"]
+    same_friend_distortion = results["Same Friend Distortion"]
+    fuzzy_distortion = results["Fuzzy Distortion"]
+    binary_distortion = results["binary Distortion"]
+    unique_friend_distortion = results["Unique Friend Distortion"]
 
     # Create a square plot
     plt.figure(figsize=(12, 12))  # Set the figure size to 12x12 inches (square)
@@ -124,7 +124,7 @@ def plot_bounds(results: dict, dataset: str, save_plot=False, show_plot=True):
     plt.plot(
         same_friend_distortion["stability"],
         same_friend_distortion["distortion"],
-        label="same friend distortion",
+        label="Same Friend Distortion",
         linewidth=2,
         linestyle=":",
     )
@@ -138,21 +138,21 @@ def plot_bounds(results: dict, dataset: str, save_plot=False, show_plot=True):
     plt.plot(
         exact_stability["stability"],
         exact_stability["distortion"],
-        label="Exact stability",
+        label="Exact Stability",
         linewidth=2,
         linestyle="-",
     )
     plt.plot(
         greedy_distortion["stability"],
         greedy_distortion["distortion"],
-        label="greedy distortion",
+        label="Greedy Distortion",
         linewidth=2,
         linestyle="--",
     )
     plt.plot(
         unique_friend_distortion["stability"],
         unique_friend_distortion["distortion"],
-        label="unique friend distortion",
+        label="Unique Friend Distortion",
         linewidth=2,
         linestyle=(0, (5, 2)),
     )

@@ -39,7 +39,7 @@ def run_stability(stability: int):
 
         kf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=42)
 
-        results = {"objective_functions": [], "accuracy": []}
+        results = {"total_distortions": [], "accuracy": []}
         min_len = len(X)
         for train_index, test_index in tqdm(
             kf.split(X, y), total=n_folds, desc="K-Fold progress", leave=False
@@ -52,8 +52,8 @@ def run_stability(stability: int):
             result = prototype_selection.prototype_reduction(stability)
 
             removed_prototypes = result["removed_prototypes"]
-            base_objective_function = result["base_objective_function"]
-            idx_min_objective_function = result["idx_min_objective_function"]
+            base_total_distortion = result["base_total_distortion"]
+            idx_min_total_distortion = result["idx_min_total_distortion"]
             last_idx_under_base = result["last_idx_under_base"]
 
             accuracy = []
@@ -68,30 +68,30 @@ def run_stability(stability: int):
                 accuracy.append(knn.score(X_test, y_test))
 
             results["#Removed Prototypes"] = removed_prototypes
-            results["objective_functions"].append(result["objective_functions"])
+            results["total_distortions"].append(result["total_distortions"])
             results["reduction_rate"] = result["reduction_rate"]
             results["accuracy"].append(accuracy)
 
-            min_len = min(min_len, len(result["objective_functions"]))
+            min_len = min(min_len, len(result["total_distortions"]))
 
-        objective_functions = [  # make all lists the same length
-            obj_fun[:min_len] for obj_fun in results["objective_functions"]
+        total_distortions = [  # make all lists the same length
+            obj_fun[:min_len] for obj_fun in results["total_distortions"]
         ]
         accuracy = [acc[:min_len] for acc in results["accuracy"]]
         removed_prototypes = results["#Removed Prototypes"][:min_len]
         reduction_rate = results["reduction_rate"][:min_len]
 
-        objective_function = np.mean(objective_functions, axis=0)
+        total_distortion = np.mean(total_distortions, axis=0)
         accuracy = np.mean(accuracy, axis=0)
 
-        objective_function = [round(score, 2) for score in objective_function]
+        total_distortion = [round(score, 2) for score in total_distortion]
         accuracy = [f"{acc:.2%}" for acc in accuracy]
         reduction_rate = [f"{rate:.2%}" for rate in reduction_rate]
 
         excel_content["Prototype Selection " + dataset] = {
             "#Removed": range(len(removed_prototypes)),
             "#Removed Prototypes": removed_prototypes,
-            "Objective Function": objective_function,
+            "Total Distortion": total_distortion,
             "Accuracy": accuracy,
             "Reduction Rate": reduction_rate,
         }

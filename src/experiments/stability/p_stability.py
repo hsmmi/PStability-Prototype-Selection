@@ -22,11 +22,11 @@ def run_dataset(dataset: str):
     max_stability = p_stability.n_samples
     max_distortion = p_stability.n_samples - p_stability.n_misses
 
-    with measure_time("Runtime: Exact stability for each distortion"):
+    with measure_time("Runtime: Exact Stability for each distortion"):
         list_distortion = list(range(14))
         list_exact_stability = p_stability.run_exact_stability(list_distortion)
-        logger.info(f"Exact stability: {list_exact_stability}")
-        excel_content["Exact stability"] = {
+        logger.info(f"Exact Stability: {list_exact_stability}")
+        excel_content["Exact Stability"] = {
             "distortion": list_distortion,
             "stability": list_exact_stability,
         }
@@ -73,37 +73,37 @@ def run_dataset(dataset: str):
             "distortion": list_exact_distortion,
         }
 
-    with measure_time("Runtime: unique friend distortion for each stability"):
+    with measure_time("Runtime: Unique Friend Distortion for each stability"):
         list_stability = list(range(max_stability + 1))
         list_unique_friend_distortion = p_stability.run_unique_friend_distortion(
             list_stability
         )
         logger.info(
-            f"unique friend distortion for stability: {list_unique_friend_distortion}"
+            f"Unique Friend Distortion for stability: {list_unique_friend_distortion}"
         )
-        excel_content["unique friend distortion"] = {
+        excel_content["Unique Friend Distortion"] = {
             "stability": list_stability,
             "distortion": list_unique_friend_distortion,
         }
 
-    with measure_time("Runtime: greedy distortion for each stability"):
+    with measure_time("Runtime: Greedy Distortion for each stability"):
         list_stability = list(range(max_stability + 1))
         list_greedy_distortion = p_stability.run_greedy_distortion(list_stability)
-        logger.info(f"greedy distortion for stability: {list_greedy_distortion}")
-        excel_content["greedy distortion"] = {
+        logger.info(f"Greedy Distortion for stability: {list_greedy_distortion}")
+        excel_content["Greedy Distortion"] = {
             "stability": list_stability,
             "distortion": list_greedy_distortion,
         }
 
-    with measure_time("Runtime: same friend distortion for each stability"):
+    with measure_time("Runtime: Same Friend Distortion for each stability"):
         list_stability = list(range(max_stability + 1))
         list_same_friend_distortion = p_stability.run_same_friend_distortion(
             list_stability
         )
         logger.info(
-            f"same friend distortion for stability: {list_same_friend_distortion}"
+            f"Same Friend Distortion for stability: {list_same_friend_distortion}"
         )
-        excel_content["same friend distortion"] = {
+        excel_content["Same Friend Distortion"] = {
             "stability": list_stability,
             "distortion": list_same_friend_distortion,
         }
@@ -112,7 +112,7 @@ def run_dataset(dataset: str):
         list_stability = list(range(max_stability + 1))
         list_binary_distortion = p_stability.run_binary_distortion(list_stability)
         logger.info(f"binary distortionclassification score: {list_binary_distortion}")
-        excel_content["binary distortion(lower)"] = {
+        excel_content["Binary Distortion"] = {
             "stability": list_stability,
             "distortion": list_binary_distortion,
         }
@@ -124,7 +124,7 @@ def run_dataset(dataset: str):
             round(fuzzy_distortion, 2) for fuzzy_distortion in list_fuzzy_distortion
         ]
         logger.info(f"Fuzzy distortion score: {list_fuzzy_distortion}")
-        excel_content["Fuzzy distortion(upper)"] = {
+        excel_content["Fuzzy Distortion"] = {
             "stability": list_stability,
             "distortion": list_fuzzy_distortion,
         }

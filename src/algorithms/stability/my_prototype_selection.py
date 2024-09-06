@@ -37,9 +37,9 @@ class PrototypeSelection(PStability):
         super().fit(X, y)
         return self
 
-    def find_objective_function(self, p: int) -> float:
+    def find_total_distortion(self, p: int) -> float:
         """
-        Find the objective function for the training data.
+        Find the total distortion for the training data.
         Fuzzy stability + number of misclassified instances.
 
         Parameters
@@ -50,7 +50,7 @@ class PrototypeSelection(PStability):
         Returns
         -------
         float
-            Total objective function value.
+            Total total distortion value.
         """
         fuzzy_stability = self.run_fuzzy_distortion(p)
         return fuzzy_stability + self.n_misses
@@ -58,7 +58,7 @@ class PrototypeSelection(PStability):
     def find_best_prototype(self, p: int) -> Tuple[int, float]:
         """
         Find the prototype which after removing gives the minimum
-        objective function value.
+        total distortion value.
 
         Parameters
         ----------
@@ -69,16 +69,16 @@ class PrototypeSelection(PStability):
         -------
         Tuple[int, float]
             A tuple containing the index of the prototype and the
-            objective_function.
+            total_distortion.
         """
-        min_idx, min_objective_function = -1, np.inf
+        min_idx, min_total_distortion = -1, np.inf
         for idx in np.where(self.mask_train)[0]:
             changed = self.remove_point(idx, update_nearest_enemy=True)
-            objective_function = self.find_objective_function(p)
-            if objective_function < min_objective_function:
-                min_idx, min_objective_function = idx, objective_function
+            total_distortion = self.find_total_distortion(p)
+            if total_distortion < min_total_distortion:
+                min_idx, min_total_distortion = idx, total_distortion
             self.put_back_point(idx, changed)
-        return min_idx, min_objective_function
+        return min_idx, min_total_distortion
 
     def extract_percentage(self, stop_condition: str) -> float:
         """
@@ -125,7 +125,7 @@ class PrototypeSelection(PStability):
 
             - "xx.xxacdr": Remove prototypes until the accuracy drops by xx.xx.
 
-            - "min_objective_function": Remove until the minimum objective function
+            - "min_total_distortion": Remove until the minimum total distortion
 
             If remaining prototypes are less than p, then it will stop.
 
@@ -137,29 +137,29 @@ class PrototypeSelection(PStability):
             - removed_prototypes: list,
                 List of prototypes removed in order.
 
-            - objective_functions: list,
-                List of objective_functions after
+            - total_distortions: list,
+                List of total_distortions after
 
             - accuracy: list,
                 List of accuracy after removing each prototype.
 
-            - base_objective_function: float,
+            - base_total_distortion: float,
                 Total fuzzy stability score before removing any prototype.
 
-            - idx_min_objective_function: int,
+            - idx_min_total_distortion: int,
                 Number of prototypes removed which gives the minimum
-                objective_function.
+                total_distortion.
 
             - last_idx_under_base: int,
                 Maximum number of prototypes removed which gives a total fuzzy
                 stability score less than the base total score.
         """
-        base_objective_function = self.find_objective_function(p)
+        base_total_distortion = self.find_total_distortion(p)
         removed_prototypes = [-1]
-        objective_functions = [base_objective_function]
+        total_distortions = [base_total_distortion]
         accuracy = [self.accuracy()]
         reduction_rate = [self.reduction_rate()]
-        idx_min_objective_function, min_objective_function = 0, base_objective_function
+        idx_min_total_distortion, min_total_distortion = 0, base_total_distortion
         last_idx_under_base = 0
         size_one_class = np.sum(self.y == self.classes[0])
         list_changes = []
@@ -189,15 +189,15 @@ class PrototypeSelection(PStability):
         if n_remove > self.n_samples - p:
             n_remove = self.n_samples - p
         for idx in range(1, n_remove + 1):
-            best_remove_idx, best_objective_function_after_remove = (
+            best_remove_idx, best_total_distortion_after_remove = (
                 self.find_best_prototype(p)
             )
             changes = self.remove_point(best_remove_idx, update_nearest_enemy=True)
 
-            if best_objective_function_after_remove <= min_objective_function:
-                min_objective_function = best_objective_function_after_remove
-                idx_min_objective_function = idx
-            if best_objective_function_after_remove < base_objective_function:
+            if best_total_distortion_after_remove <= min_total_distortion:
+                min_total_distortion = best_total_distortion_after_remove
+                idx_min_total_distortion = idx
+            if best_total_distortion_after_remove < base_total_distortion:
                 last_idx_under_base = idx
 
             list_changes.append(changes)
@@ -205,7 +205,7 @@ class PrototypeSelection(PStability):
                 if self.accuracy() < base_accuracy - drop_allowed:
                     break
             removed_prototypes.append(best_remove_idx)
-            objective_functions.append(best_objective_function_after_remove)
+            total_distortions.append(best_total_distortion_after_remove)
             accuracy.append(self.accuracy())
             reduction_rate.append(self.reduction_rate())
 
@@ -215,12 +215,12 @@ class PrototypeSelection(PStability):
 
         ret = {
             "removed_prototypes": removed_prototypes,
-            "objective_functions": objective_functions,
+            "total_distortions": total_distortions,
             "accuracy": accuracy,
             "reduction_rate": reduction_rate,
-            "base_objective_function": base_objective_function,
-            "idx_min_objective_function": idx_min_objective_function,
-            "min_objective_function": min_objective_function,
+            "base_total_distortion": base_total_distortion,
+            "idx_min_total_distortion": idx_min_total_distortion,
+            "min_total_distortion": min_total_distortion,
             "last_idx_under_base": last_idx_under_base,
         }
 

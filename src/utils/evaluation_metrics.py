@@ -104,14 +104,14 @@ def compare_prototype_selection(
                 psm.remove_point(idx, update_nearest_enemy=True)
 
             distorion_reduced = psm.run_fuzzy_distortion(1)
-            objective_function_reduced = distorion_reduced + psm.n_misses
+            total_distortion_reduced = distorion_reduced + psm.n_misses
 
             run_result = RunResult(
                 size=len(X_reduced),
                 accuracy=accuracy_reduced,
                 reduction=1 - len(X_reduced) / len(X_train),
                 distortion=distorion_reduced,
-                objective_function=objective_function_reduced,
+                total_distortion=total_distortion_reduced,
                 time=end_time - start_time,
             )
 

@@ -508,7 +508,7 @@ class PStability(KNN):
         Returns
         -------
         list[int]
-            List of unique friend distortion values found for each stability value in list_stability
+            List of Unique Friend Distortion values found for each stability value in list_stability
         """
         self.number_of_friends_sorted_index = self.find_number_of_friends_sorted_index()
         return self._run(list_stability, self.find_unique_friend_distortion)
@@ -575,7 +575,7 @@ class PStability(KNN):
         Returns
         -------
         list[int]
-            List of greedy distortion values found for each stability value in list_stability.
+            List of Greedy Distortion values found for each stability value in list_stability.
         """
         ret = self._run(list_stability, self.find_greedy_distortion)
         return ret
@@ -633,7 +633,7 @@ class PStability(KNN):
         Returns
         -------
         list[int]
-            List of same friend distortion values found for each stability value in list_stability.
+            List of Same Friend Distortion values found for each stability value in list_stability.
         """
         self.number_of_friends_sorted_index = self.find_number_of_friends_sorted_index()
         return self._run(list_stability, self.find_same_friend_distortion)
