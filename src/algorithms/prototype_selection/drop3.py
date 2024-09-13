@@ -64,6 +64,10 @@ class DROP3(BaseAlgorithm):
             return collections.Counter(labels).most_common()[0][0]
 
     def classify(self, associate):
+        """
+        Classify each instance which is in associate list and then
+        return number of associates whihch classify correctly
+        """
         ans = 0
         for idx in associate:
             idx_neighbors = self.get_nearest_neighbors(idx)

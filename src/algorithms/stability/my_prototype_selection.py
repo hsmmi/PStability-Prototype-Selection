@@ -250,7 +250,9 @@ class PrototypeSelection(PStability):
         list[int]
             List of indices of the remaining prototypes.
         """
-        result = self.prototype_reduction(p)
+        # TODO: If n_sample > 100 then devide it to batches
+
+        result = self.prototype_reduction(p, stop_condition)
         removed_prototypes = result["removed_prototypes"]
         remaining_prototypes = np.setdiff1d(
             np.arange(self.n_samples), removed_prototypes

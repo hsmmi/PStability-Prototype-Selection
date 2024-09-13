@@ -16,7 +16,7 @@ class LDIS(BaseAlgorithm):
         self.pairwise_distance: np.ndarray = None
         # partial k-neighborhood
         self.pkn: np.ndarray = None
-        self.dencity: np.ndarray = None
+        self.density: np.ndarray = None
 
     def _set_nearest_neighbors(self, class_members: np.ndarray):
         """
@@ -41,12 +41,12 @@ class LDIS(BaseAlgorithm):
         Calculate the density of an instance on its class.
         """
         len_class_members = len(self.pairwise_distance)
-        self.dencity = np.zeros(len_class_members)
+        self.density = np.zeros(len_class_members)
         for idx in range(len_class_members):
             for idx2 in range(len_class_members):
                 if idx != idx2:
-                    self.dencity[idx] += self.pairwise_distance[idx][idx2]
-            self.dencity[idx] = -self.dencity[idx] / (len_class_members - 1)
+                    self.density[idx] += self.pairwise_distance[idx][idx2]
+            self.density[idx] = -self.density[idx] / (len_class_members - 1)
 
     def _fit(self) -> np.ndarray:
         """
@@ -62,7 +62,7 @@ class LDIS(BaseAlgorithm):
             for idx in range(len(class_members)):
                 found_denser = False
                 for idx2 in self.pkn[idx]:
-                    if self.dencity[idx] < self.dencity[idx2]:
+                    if self.density[idx] < self.density[idx2]:
                         found_denser = True
                         break
                 if not found_denser:
